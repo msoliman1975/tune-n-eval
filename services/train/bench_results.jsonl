@@ -1,1 +1,0 @@
-{"preset": "qwen-1.7b-lora", "error": "CalledProcessError: Command '['/usr/bin/gcc', '/tmp/tmpim7jyu7i/cuda_utils.c', '-O3', '-shared', '-fPIC', '-Wno-psabi', '-o', '/tmp/tmpim7jyu7i/cuda_utils.cpython-312-x86_64-linux-gnu.so', '-l:libcuda.so.1', '-L/home/msoli/agritune/services/train/.venv/lib/python3.12/site-packages/triton/backends/nvidia/lib', '-L/usr/l"}
