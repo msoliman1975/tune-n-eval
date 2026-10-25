@@ -8,9 +8,9 @@ from Windows it is at `\\wsl.localhost\Ubuntu-24.04\home\msoli\agritune`.
 | Piece | Version | Notes |
 |---|---|---|
 | WSL distro | Ubuntu 24.04.5 | user `msoli`, passwordless sudo, systemd on |
-| WSL memory | 24 GB + 8 GB swap | `%USERPROFILE%\.wslconfig` |
-| GPU driver (Windows) | 577.13, CUDA 12.9 | RTX 5070 Ti Laptop, 12 GB, compute 12.0 |
-| PyTorch | 2.13.0+cu129 | pinned to the cu129 index in `services/train/pyproject.toml` |
+| WSL memory | 16 GB + 8 GB swap | `%USERPROFILE%\.wslconfig` |
+| GPU driver (Windows) | 621.01, CUDA 13.5 | RTX 5070 Ti Laptop, 12 GB, compute 12.0 |
+| PyTorch / Triton | 2.14.1+cu130 / 3.8.0 | default PyPI build, no index pin |
 | Unsloth / TRL / bitsandbytes | 2026.10.8 / 1.15.0 / 0.50.2 | |
 | uv | 0.13.5 | |
 | Docker Engine / Compose | 29.9.2 / v5.6.1 | installed inside WSL, not Rancher Desktop |
@@ -20,36 +20,42 @@ from Windows it is at `\\wsl.localhost\Ubuntu-24.04\home\msoli\agritune`.
 ```bash
 cd ~/agritune
 bash infra/up.sh                                   # start postgres, redis, mlflow, qdrant
-cd services/train && uv run python -m agritune_train.gpu_check
-uv run python -m agritune_train.bench --preset qwen-1.7b-lora
+bash services/train/run.sh gpu_check
+bash services/train/run.sh bench --preset qwen-1.7b-lora
 ```
 
 MLflow UI: http://localhost:5000 (opens from a Windows browser too).
 
-## Status (2026-10-25)
+## Status (2026-10-24)
 
-- Done: WSL, uv, training stack, Docker, infra stack healthy, `python3.12-dev` installed,
-  WSL memory lowered to 16 GB, Windows PATH disabled in `/etc/wsl.conf`.
-- Blocked: Triton 3.7.1 (required by torch 2.13) segfaults when loading a kernel. Its bundled
-  `cuda.h` is CUDA 13.1 and driver 577.13 only supports 12.9. The user updated the NVIDIA
-  driver and is rebooting.
+- M0 done: WSL, uv, training stack, Docker, infra stack, driver update, `gpu_check` and
+  `triton_check` pass, benchmarks below.
+- Decision: gemma-12b-qlora is dropped from the presets; qwen-8b-qlora is the largest model.
 
-## Resume after the driver update
+## Benchmarks (2026-10-24)
 
-1. `nvidia-smi` inside WSL should report CUDA Version 13.x.
-2. Remove the `[tool.uv.sources]` and `[[tool.uv.index]]` cu129 blocks and the `torch==2.13.0`
-   pin from `services/train/pyproject.toml`, then `uv sync`.
-3. `bash services/train/run.sh gpu_check` and `bash services/train/run.sh triton_check`.
-4. Benchmark one preset at a time: `bash services/train/run.sh bench --preset qwen-1.7b-lora`,
-   then gemma-4b-qlora, qwen-8b-qlora, gemma-12b-qlora. Watch RAM: an earlier `--all` run was
-   killed when the machine ran low on memory (WSL then had 24 GB of 32 GB).
-5. `bash infra/up.sh` if the containers are not already up (they restart with Docker).
+LoRA r=16 on all linear layers, batch 1, 25 steps (5 warm-up), bf16, adamw_8bit, gradient
+checkpointing. Run one preset per process; results append to `services/train/bench_results.jsonl`.
+
+| Preset | Seq | Peak VRAM (of 11.9 GB) | Step | Tokens/s | Peak WSL RAM |
+|---|---|---|---|---|---|
+| qwen-1.7b-lora (16-bit) | 4096 | 4.08 GB | 1.54 s | 2,665 | 7.1 GB |
+| gemma-4b-qlora | 2048 | 5.02 GB | 1.61 s | 1,273 | 8.1 GB |
+| qwen-8b-qlora | 2048 | 7.88 GB | 2.85 s | 719 | 7.3 GB |
+| gemma-12b-qlora | 1024 | did not load | — | — | 5.4 GB |
+
+First loads include the model download (gemma-4b 382 s, qwen-8b 655 s); later loads are cached.
 
 ## Known issues
 
-- **Driver too old for CUDA 13** (577.13). PyPI's default torch and Triton 3.7 need CUDA 13.
-  Fixed by the driver update; drop the cu129 pin afterwards.
+- **gemma-12b-qlora does not fit** (dropped). With 10.69 GB free on the GPU, transformers puts
+  part of the model on the CPU, and bitsandbytes cannot quantize those layers. Unsloth suggests
+  `offload_layers="auto"`, which keeps the extra layers in host RAM and will be much slower.
+- **xformers mismatch.** The installed xformers was built for torch 2.10; Unsloth falls back to
+  PyTorch attention. `unsloth install-kernels xformers` rebuilds it if speed matters.
 - **Windows PATH inside WSL.** Rancher Desktop's Windows `docker-credential-secretservice` leaked
   in and broke image pulls. Now disabled with `[interop] appendWindowsPath=false` in
   `/etc/wsl.conf`; `infra/up.sh` also strips `/mnt/*` from PATH.
 - **Triton needs Python headers.** Ubuntu's Python lacks them by default: `python3.12-dev`.
+- **Resolved: driver too old for CUDA 13.** Driver 577.13 (CUDA 12.9) made Triton 3.7.1
+  segfault. Fixed by updating to 621.01 and dropping the cu129 torch pin.

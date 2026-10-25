@@ -20,7 +20,6 @@ PRESETS = {
     "qwen-1.7b-lora": dict(model="unsloth/Qwen3-1.7B", load_in_4bit=False, seq=4096),
     "gemma-4b-qlora": dict(model="unsloth/gemma-3-4b-it-unsloth-bnb-4bit", load_in_4bit=True, seq=2048),
     "qwen-8b-qlora": dict(model="unsloth/Qwen3-8B-unsloth-bnb-4bit", load_in_4bit=True, seq=2048),
-    "gemma-12b-qlora": dict(model="unsloth/gemma-3-12b-it-unsloth-bnb-4bit", load_in_4bit=True, seq=1024),
 }
 
 STEPS, WARMUP = 25, 5
