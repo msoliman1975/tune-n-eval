@@ -1,0 +1,41 @@
+# AgriTune shared infrastructure. Ports bind to localhost only.
+#   docker compose -f infra/compose.yaml --env-file infra/.env up -d
+# The GPU worker and Ollama run on the WSL host (not in containers) for direct CUDA access.
+name: agritune
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: agritune
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in infra/.env}
+      POSTGRES_DB: agritune
+    volumes: [pgdata:/var/lib/postgresql/data, ./postgres-init:/docker-entrypoint-initdb.d:ro]
+    ports: ["127.0.0.1:5432:5432"]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U agritune"], interval: 5s, retries: 10 }
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: [redisdata:/data]
+    ports: ["127.0.0.1:6379:6379"]
+    restart: unless-stopped
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v3.17.2
+    command: >
+      mlflow server --host 0.0.0.0 --port 5000
+      --backend-store-uri sqlite:////mlflow/mlflow.db
+      --artifacts-destination /mlflow/artifacts
+    volumes: [mlflowdata:/mlflow]
+    ports: ["127.0.0.1:5000:5000"]
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:v1.15.4
+    volumes: [qdrantdata:/qdrant/storage]
+    ports: ["127.0.0.1:6333:6333"]
+    restart: unless-stopped
+
+volumes: { pgdata: {}, redisdata: {}, mlflowdata: {}, qdrantdata: {} }
