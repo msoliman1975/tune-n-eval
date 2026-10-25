@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agritune.local/contracts/dataset-item.schema.json",
+  "title": "DatasetItem",
+  "description": "One generated or expert-written item. Rows of every DatasetRef split.",
+  "type": "object",
+  "required": ["id", "lang", "type", "question", "answer", "source"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "examples": ["mq-ar-000412"] },
+    "lang": { "enum": ["en", "ar", "arz"], "description": "arz = Egyptian Arabic (eval only)." },
+    "type": { "enum": ["open_qa", "mcq"] },
+    "topic": { "type": "string", "examples": ["postharvest/hot_water"] },
+    "fact_id": { "type": "string", "description": "Items about the same fact share this; train and heldout phrasings of one fact never share wording." },
+    "question": { "type": "string", "minLength": 1 },
+    "answer": { "type": "string", "minLength": 1, "description": "Reference answer; for MCQ, the letter of the correct choice." },
+    "choices": { "type": "array", "items": { "type": "string" }, "minItems": 4, "maxItems": 4, "description": "MCQ only, in A-D order." },
+    "source": {
+      "type": "object",
+      "required": ["doc_id", "chunk"],
+      "additionalProperties": false,
+      "properties": {
+        "doc_id": { "type": "string" },
+        "chunk": { "type": "integer", "minimum": 0 },
+        "license": { "type": "string" }
+      }
+    },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "model": { "type": "string" },
+        "prompt_version": { "type": "string" }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": { "enum": ["pending", "accepted", "edited", "rejected"] },
+        "by": { "type": "string" }
+      }
+    }
+  }
+}

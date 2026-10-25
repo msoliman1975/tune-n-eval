@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+/* Same palette as the AgriTune blueprint: chlorophyll for structure, mango for highlights. */
+@theme {
+  --color-bg: #f3f5f1;
+  --color-surface: #ffffff;
+  --color-fg: #1c2420;
+  --color-muted: #5d6a62;
+  --color-line: #d9e0d9;
+  --color-accent: #2f6b3f;
+  --color-accent-soft: #e2efe4;
+  --color-mango: #b5650a;
+  --color-mango-soft: #fbecd6;
+  --color-warn: #9b3b1f;
+  --color-warn-soft: #f8e3db;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-sans: "IBM Plex Sans", "IBM Plex Sans Arabic", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #121714;
+    --color-surface: #1a211c;
+    --color-fg: #e3eae4;
+    --color-muted: #9aa89f;
+    --color-line: #2c3730;
+    --color-accent: #7cc48d;
+    --color-accent-soft: #203227;
+    --color-mango: #f0a64a;
+    --color-mango-soft: #36281a;
+    --color-warn: #f08a6a;
+    --color-warn-soft: #3a221b;
+    color-scheme: dark;
+  }
+}
+
+body { background: var(--color-bg); color: var(--color-fg); font-family: var(--font-sans); }
+h1, h2, h3 { font-family: var(--font-display); }
+.num { font-variant-numeric: tabular-nums; }

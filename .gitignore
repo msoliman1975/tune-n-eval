@@ -9,3 +9,4 @@ artifacts/
 node_modules/
 unsloth_compiled_cache/
 bench_results.jsonl
+dist/

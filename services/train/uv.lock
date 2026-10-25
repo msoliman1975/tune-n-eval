@@ -30,20 +30,24 @@ name = "agritune-train"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "fastapi" },
     { name = "mlflow" },
     { name = "nvidia-ml-py" },
     { name = "torch" },
     { name = "torchvision" },
     { name = "unsloth" },
+    { name = "uvicorn" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "fastapi", specifier = ">=0.115" },
     { name = "mlflow", specifier = ">=3.17.2" },
     { name = "nvidia-ml-py", specifier = ">=13.0" },
     { name = "torch" },
     { name = "torchvision" },
     { name = "unsloth", specifier = ">=2026.10.8" },
+    { name = "uvicorn", specifier = ">=0.32" },
 ]
 
 [[package]]

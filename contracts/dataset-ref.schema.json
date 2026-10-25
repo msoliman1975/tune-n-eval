@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agritune.local/contracts/dataset-ref.schema.json",
+  "title": "DatasetRef",
+  "description": "A frozen, versioned dataset that Train and Eval read. Written by the Data service.",
+  "type": "object",
+  "required": ["id", "version", "sha256", "splits", "split_by", "created_at"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$", "examples": ["mango-sft"] },
+    "version": { "type": "string", "pattern": "^v[0-9]+\\.[0-9]+$", "examples": ["v0.1"] },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Hash over the split files, in split-name order." },
+    "splits": {
+      "type": "object",
+      "description": "Split name to artifact path of a Parquet file of DatasetItem rows.",
+      "propertyNames": { "enum": ["train", "heldout", "heldout_unseen", "gold"] },
+      "additionalProperties": { "type": "string" },
+      "required": ["train"]
+    },
+    "counts": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+    "split_by": {
+      "const": "fact+source_doc",
+      "description": "heldout asks about facts that train covers, in different words; heldout_unseen comes from source documents with no train items."
+    },
+    "source_docs": { "type": "string", "description": "Artifact path of the source manifest (Parquet)." },
+    "created_at": { "type": "string", "format": "date-time" },
+    "workspace_id": { "type": "string", "default": "default" }
+  }
+}

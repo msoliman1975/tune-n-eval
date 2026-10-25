@@ -16,11 +16,7 @@ import sys
 import time
 from pathlib import Path
 
-PRESETS = {
-    "qwen-1.7b-lora": dict(model="unsloth/Qwen3-1.7B", load_in_4bit=False, seq=4096),
-    "gemma-4b-qlora": dict(model="unsloth/gemma-3-4b-it-unsloth-bnb-4bit", load_in_4bit=True, seq=2048),
-    "qwen-8b-qlora": dict(model="unsloth/Qwen3-8B-unsloth-bnb-4bit", load_in_4bit=True, seq=2048),
-}
+from .presets import PRESETS
 
 STEPS, WARMUP = 25, 5
 RESULTS = Path(__file__).resolve().parents[2] / "bench_results.jsonl"

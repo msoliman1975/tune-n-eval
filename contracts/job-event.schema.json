@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agritune.local/contracts/job-event.schema.json",
+  "title": "JobEvent",
+  "description": "One event from a long-running job, streamed to the Studio over SSE.",
+  "type": "object",
+  "required": ["job_id", "service", "type", "ts"],
+  "additionalProperties": false,
+  "properties": {
+    "job_id": { "type": "string" },
+    "service": { "enum": ["data", "train", "eval"] },
+    "type": { "enum": ["queued", "started", "progress", "metric", "log", "succeeded", "failed", "cancelled"] },
+    "ts": { "type": "string", "format": "date-time" },
+    "step": { "type": "integer", "minimum": 0 },
+    "total": { "type": "integer", "minimum": 0 },
+    "metrics": { "type": "object", "additionalProperties": { "type": "number" }, "examples": [{ "loss": 1.23, "vram_gb": 7.9 }] },
+    "message": { "type": "string" },
+    "result": { "type": "object", "description": "On succeeded: a DatasetRef, ModelRef or EvalReport id." }
+  }
+}

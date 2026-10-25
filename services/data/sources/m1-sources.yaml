@@ -1,0 +1,521 @@
+# M1 source list: ~40 mango documents, EN + AR. Built 2026-10-25.
+# Note: journals.ekb.eg (Egyptian Knowledge Bank journals) returns "Access Restricted ... automated
+# scraping prohibited" (HTTP 429) to scripted requests, so no EKB URLs are listed. Egyptian papers
+# below are taken from PubMed Central, SpringerOpen, or author copies on Egyptian university sites.
+sources:
+  # ---------------- English ----------------
+  - doc_id: edis-mango-home-landscape-2023
+    title: "Mango Growing in the Florida Home Landscape (HS2/MG216)"
+    url: "https://edis.ifas.ufl.edu/publication/MG216/pdf"
+    format: pdf
+    lang: en
+    publisher: "UF/IFAS Extension (EDIS)"
+    year: 2023
+    license: "unknown"
+    topics: [varieties, establishment, spacing, pruning, nutrition, irrigation, flowering, pests, diseases, anthracnose, powdery_mildew, harvest]
+    egypt_specific: false
+    verified: true
+    notes: "10 pp, text PDF. Revised Nov 2023. Includes monthly calendar and fertilizer tables."
+
+  - doc_id: edis-mango-postharvest-bmp-2024
+    title: "Mango Postharvest Best Management Practices Manual (HS1185)"
+    url: "https://edis.ifas.ufl.edu/publication/HS1185/pdf"
+    format: pdf
+    lang: en
+    publisher: "UF/IFAS Extension (EDIS) / National Mango Board"
+    year: 2024
+    license: "copyright National Mango Board, all rights reserved (free to read)"
+    topics: [harvest_maturity, postharvest, hot_water, stem_end_rot, anthracnose, ripening, cold_chain, export_standards]
+    egypt_specific: false
+    verified: true
+    notes: "69 pp, text PDF but ~79 MB (image-heavy); allow long download timeout."
+
+  - doc_id: fao-inpho-mango-postharvest-2002
+    title: "MANGO: Post-harvest Operations (INPhO Post-harvest Compendium)"
+    url: "https://www.fao.org/fileadmin/user_upload/inpho/docs/Post_Harvest_Compendium_-_Mango.pdf"
+    format: pdf
+    lang: en
+    publisher: "FAO (AGSI) / Instituto Tecnologico de Veracruz"
+    year: 2002
+    license: "unknown"
+    topics: [harvest_maturity, postharvest, hot_water, stem_end_rot, anthracnose, storage, processing]
+    egypt_specific: false
+    verified: true
+    notes: "70 pp, text PDF."
+
+  - doc_id: codex-mango-standard-en-1993
+    title: "Codex Standard for Mangoes (CODEX STAN 184-1993, Amd. 2005)"
+    url: "https://www.fao.org/input/download/standards/315/CXS_184e.pdf"
+    format: pdf
+    lang: en
+    publisher: "FAO/WHO Codex Alimentarius Commission"
+    year: 2005
+    license: "unknown"
+    topics: [export_standards, quality_grades, sizing, tolerances, packaging]
+    egypt_specific: false
+    verified: true
+    notes: "4 pp, text PDF. Arabic edition listed separately (codex-mango-standard-ar-1993)."
+
+  - doc_id: nt-mango-irrigation-agnote-2006
+    title: "Mango Irrigation Management Guidelines (Agnote D14)"
+    url: "https://daf.nt.gov.au/publications/publications-search/publications-database/primary-industry/fruit/587.pdf"
+    format: pdf
+    lang: en
+    publisher: "Northern Territory Government, Australia"
+    year: 2006
+    license: "copyright Northern Territory Government, free to read"
+    topics: [irrigation, flowering, water_stress]
+    egypt_specific: false
+    verified: true
+    notes: "4 pp, text PDF."
+
+  - doc_id: nt-mango-paclobutrazol-agnote-2006
+    title: "Flowering and Fruiting in Mangoes in the Top End with Paclobutrazol (Agnote D20)"
+    url: "https://daf.nt.gov.au/publications/publications-search/publications-database/primary-industry/fruit/614.pdf"
+    format: pdf
+    lang: en
+    publisher: "Northern Territory Government, Australia"
+    year: 2006
+    license: "copyright Northern Territory Government, free to read"
+    topics: [flowering, paclobutrazol, alternate_bearing, yield]
+    egypt_specific: false
+    verified: true
+    notes: "3 pp, text PDF."
+
+  - doc_id: nt-operation-kp-production-guide-2003
+    title: "Operation KP: A production guide for mango growers in northern Australia (OP4)"
+    url: "https://daf.nt.gov.au/publications/publications-search/publications-database/primary-industry/fruit/op4_operation_kp.pdf"
+    format: pdf
+    lang: en
+    publisher: "Northern Territory Government (DBIRD) / NT Horticultural Association"
+    year: 2003
+    license: "unknown"
+    topics: [nutrition, irrigation, pruning, flowering, paclobutrazol, pests, diseases, harvest_maturity, postharvest]
+    egypt_specific: false
+    verified: true
+    notes: "60 pp, text PDF. Kensington Pride focused; chemical recommendations dated."
+
+  - doc_id: nt-mango-when-to-harvest
+    title: "Mango: Working out when to harvest"
+    url: "https://nt.gov.au/industry/agriculture/food-crops-plants-and-quarantine/fruit-crops/mango/working-out-when-to-harvest"
+    format: html
+    lang: en
+    publisher: "Northern Territory Government, Australia"
+    year: null
+    license: "copyright Northern Territory Government, free to read"
+    topics: [harvest_maturity, dry_matter]
+    egypt_specific: false
+    verified: true
+    notes: "Short HTML page; strip site navigation."
+
+  - doc_id: qld-mango-malformation-disease
+    title: "Mango malformation disease"
+    url: "https://www.business.qld.gov.au/industries/farms-fishing-forestry/agriculture/biosecurity/plants/priority-pest-disease/mango-malformation-disease"
+    format: html
+    lang: en
+    publisher: "Business Queensland (Queensland Government)"
+    year: null
+    license: "copyright State of Queensland, free to read"
+    topics: [malformation, diseases, biosecurity]
+    egypt_specific: false
+    verified: true
+    notes: "HTML page; symptoms, spread, management."
+
+  - doc_id: haggag-mango-malformation-mangiferin-2011
+    title: "Mango malformation: II. Mangiferin changes associated with fusarium pathogens"
+    url: "https://fsc.stafpu.bu.edu.eg/Botany/1360/publications/Mahmoud%20Mohamed%20Hazza_Mango%20malformation%20II.%20mangiferin%20changes.pdf"
+    format: pdf
+    lang: en
+    publisher: "Agricultural Sciences (SciRes); author copy hosted by Benha University"
+    year: 2011
+    license: "copyright SciRes, openly accessible"
+    topics: [malformation, diseases, fusarium]
+    egypt_specific: true
+    verified: true
+    notes: "6 pp, text PDF. NRC Dokki / Benha Univ. authors."
+
+  - doc_id: siam-white-mango-scale-botanicals-2020
+    title: "Field evaluation of botanicals extracts for suppressing the mango scale insect, Aulacaspis tubercularis"
+    url: "https://ejbpc.springeropen.com/counter/pdf/10.1186/s41938-020-00221-4.pdf"
+    format: pdf
+    lang: en
+    publisher: "Egyptian Journal of Biological Pest Control (SpringerOpen)"
+    year: 2020
+    license: "CC BY 4.0"
+    topics: [pests, white_mango_scale, botanical_pesticides]
+    egypt_specific: true
+    verified: true
+    notes: "5 pp, text PDF. Field trial in Fayoum."
+
+  - doc_id: hassan-naomi-salt-stress-pgr-2025
+    title: "Improving Naomi Mango Trees Capability to Withstand Salt Stress Using Some Plant Growth Regulators"
+    url: "https://scholar.asu.edu.eg/bitstream/123456789/216237/2/s42729-025-02586-7.pdf"
+    format: pdf
+    lang: en
+    publisher: "Journal of Soil Science and Plant Nutrition (Springer); copy on Ain Shams Univ. repository"
+    year: 2025
+    license: "CC BY 4.0"
+    topics: [salinity, plant_growth_regulators, naomi, rootstock]
+    egypt_specific: true
+    verified: true
+    notes: "18 pp, text PDF. Giza orchard, Succari rootstock."
+
+  - doc_id: zebda-biochar-hydrogel-wue-2025
+    title: "Morpho-physiological parameters, nutritional status and water use efficiency of Zebda mango in relation to biochar and hydrogel application under semi-arid region"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC12638948/"
+    format: html
+    lang: en
+    publisher: "Scientific Reports (via PubMed Central)"
+    year: 2025
+    license: "CC BY 4.0"
+    topics: [irrigation, water_use_efficiency, soil_amendments, nutrition, reclaimed_land, zebda]
+    egypt_specific: true
+    verified: true
+    notes: "PMC full-text HTML."
+
+  - doc_id: keitt-powdery-mildew-sulfur-np-2025
+    title: "Alleviating biotic stress of powdery mildew in mango cv. Keitt by Sulfur nanoparticles and assessing their effect on productivity and disease severity"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC11828861/"
+    format: html
+    lang: en
+    publisher: "Scientific Reports (via PubMed Central)"
+    year: 2025
+    license: "CC BY 4.0"
+    topics: [diseases, powdery_mildew, keitt, yield]
+    egypt_specific: true
+    verified: true
+    notes: "PMC full-text HTML."
+
+  - doc_id: osteen-heat-stress-licorice-2024
+    title: "Licorice-root extract and potassium sorbate spray improved the yield and fruit quality and decreased heat stress of the 'osteen' mango cultivar"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC11466221/"
+    format: html
+    lang: en
+    publisher: "PeerJ (via PubMed Central)"
+    year: 2024
+    license: "CC BY 4.0"
+    topics: [heat_stress, foliar_sprays, yield, fruit_quality]
+    egypt_specific: true
+    verified: true
+    notes: "PMC full-text HTML. PeerJ states 'Creative Commons Attribution License'."
+
+  - doc_id: mango-micronutrients-amino-acids-arid-2021
+    title: "The Exogenous Application of Micro-Nutrient Elements and Amino Acids Improved the Yield, Nutritional Status and Quality of Mango in Arid Regions"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC8540748/"
+    format: html
+    lang: en
+    publisher: "Plants (MDPI, via PubMed Central)"
+    year: 2021
+    license: "CC BY 4.0"
+    topics: [nutrition, micronutrients, foliar_sprays, reclaimed_land, yield]
+    egypt_specific: true
+    verified: true
+    notes: "PMC full-text HTML (MDPI site blocks automated download)."
+
+  - doc_id: keitt-potassium-zinc-boron-2015
+    title: "Effect of Potassium, Zinc and Boron on Growth, Yield and Fruit Quality of Keitt Mango Trees"
+    url: "https://fagr.stafpu.bu.edu.eg/Horticulture/1170/publications/Sherif%20Fathy%20Eid%20El-Sayed%20El-Gioushy_%5B117%5D.pdf"
+    format: pdf
+    lang: en
+    publisher: "Research Journal of Pharmaceutical, Biological and Chemical Sciences; author copy hosted by Benha University"
+    year: 2015
+    license: "unknown"
+    topics: [nutrition, foliar_sprays, keitt, yield]
+    egypt_specific: true
+    verified: true
+    notes: "13 pp, text PDF. NRC / Benha Univ.; El-Behaira trial."
+
+  - doc_id: elshahawy-new-cultivars-egypt-2022
+    title: "Comparative study on fruit yield and quality traits of the new mango cultivars grown under Egypt conditions"
+    url: "https://sabraojournal.org/wp-content/uploads/2022/11/SABRAO-J-Breed-Genet-54-4-864-875_MS22-97_SABRAO-manuscript_17.pdf"
+    format: pdf
+    lang: en
+    publisher: "SABRAO Journal of Breeding and Genetics"
+    year: 2022
+    license: "copyright SABRAO, free to read"
+    topics: [varieties, kent, keitt, yield, fruit_quality]
+    egypt_specific: true
+    verified: true
+    notes: "12 pp, text PDF. Zagazig Univ.; Almansoria, Giza, drip-irrigated."
+
+  - doc_id: mango-hopper-clonostachys-2022
+    title: "First Record of Clonostachys rosea Entomopathogenic Fungus in the Mango Hopper Amritodus atkinsoni"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC9781130/"
+    format: html
+    lang: en
+    publisher: "Pathogens (MDPI, via PubMed Central)"
+    year: 2022
+    license: "CC BY 4.0"
+    topics: [pests, mango_hopper, biological_control]
+    egypt_specific: false
+    verified: true
+    notes: "PMC full-text HTML. India study."
+
+  - doc_id: mango-fruit-flies-cultivars-bagging-2021
+    title: "Effect of host plant on cornucopia of mango fruit flies (Diptera: Tephritidae) and their triumphant management in context of climate change"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC8071905/"
+    format: html
+    lang: en
+    publisher: "Saudi Journal of Biological Sciences (via PubMed Central)"
+    year: 2021
+    license: "CC BY-NC-ND 4.0"
+    topics: [pests, fruit_flies, bagging, varieties]
+    egypt_specific: false
+    verified: true
+    notes: "PMC full-text HTML. Pakistan study. NC-ND licence."
+
+  - doc_id: mango-mealybug-farmer-management-2021
+    title: "Farmers' knowledge, perception and management of mango mealy bug, Drosicha mangiferae, on Mangifera indica in Punjab, Pakistan"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC8241610/"
+    format: html
+    lang: en
+    publisher: "Saudi Journal of Biological Sciences (via PubMed Central)"
+    year: 2021
+    license: "CC BY-NC-ND 4.0"
+    topics: [pests, mealybug, ipm]
+    egypt_specific: false
+    verified: true
+    notes: "PMC full-text HTML. Pakistan study. NC-ND licence."
+
+  # ---------------- Arabic ----------------
+  - doc_id: arc-caae-mango-production-2022
+    title: "زراعة وإنتاج المانجو"
+    url: "https://misrelzraea.com/wp-content/uploads/2024/03/%D9%86%D8%B4%D8%B1%D8%A9-%D8%A7%D9%84%D9%85%D8%A7%D9%86%D8%AC%D9%88-%D8%B7%D8%A8%D8%B9_compressed.pdf"
+    format: pdf
+    lang: ar
+    publisher: "مركز البحوث الزراعية / الإدارة المركزية للإرشاد الزراعي (hosted by بوابة مصر الزراعية)"
+    year: 2022
+    license: "unknown"
+    topics: [climate, establishment, spacing, varieties, flowering, alternate_bearing, nutrition, irrigation, salinity, white_mango_scale, mealybug, mango_hopper, sooty_mould, malformation, powdery_mildew, harvest_maturity, hot_water]
+    egypt_specific: true
+    verified: true
+    notes: "71 pp, clean Arabic text layer. Official ARC extension bulletin (marked 'تطلب بالمجان'); host site says all rights reserved. Top-priority source."
+
+  - doc_id: egyptian-agri-net-mango-crop-2022
+    title: "محصول المانجو"
+    url: "https://agricultureegypt.com/uploads/manga.pdf"
+    format: pdf
+    lang: ar
+    publisher: "شبكة الزراعة المصرية (د. جمال محمد حسن، د. ماجدة هاشم منصور)"
+    year: 2022
+    license: "unknown"
+    topics: [propagation, varieties, spacing, nutrition, irrigation, flowering, alternate_bearing, harvest_maturity, hot_water, white_mango_scale, fruit_flies, mango_hopper, malformation, anthracnose, stem_end_rot]
+    egypt_specific: true
+    verified: true
+    notes: "34 pp, Arabic text layer. Covers Zebda, Ewais, Taimour, Sukkari, Keitt, Kent. Year from PDF metadata."
+
+  - doc_id: apc-mango-fungal-diseases-scale-ismailia-2019
+    title: "بعض أمراض المانجو الفطرية وعلاقتها بالحشرات القشرية بالإسماعيلية – جمهورية مصر العربية"
+    url: "http://www.apc.gov.eg/files/mango2019.pdf"
+    format: pdf
+    lang: ar
+    publisher: "لجنة مبيدات الآفات الزراعية (Agricultural Pesticides Committee, Egypt MoA)"
+    year: 2019
+    license: "unknown"
+    topics: [white_mango_scale, mealybug, sooty_mould, diseases, fruit_flies, ipm]
+    egypt_specific: true
+    verified: true
+    notes: "14 pp, Arabic text layer. Ismailia. Plain http URL."
+
+  - doc_id: mewa-mango-germplasm-guide-2024
+    title: "دليل تعريف الموارد الوراثية النباتية للمانجو"
+    url: "https://www.mewa.gov.sa/shareddata/SeedsSeedlingsCenter/CatalogsReferencesResearch/Mango.pdf"
+    format: pdf
+    lang: ar
+    publisher: "وزارة البيئة والمياه والزراعة السعودية – مركز البذور والتقاوي"
+    year: 2024
+    license: "unknown"
+    topics: [varieties, fruit_quality]
+    egypt_specific: false
+    verified: true
+    notes: "155 pp, Arabic text layer; one card per accession (~77 cultivars incl. Zebda). Table-like; better for fact extraction than prose Q&A. Year from PDF metadata."
+
+  - doc_id: codex-mango-standard-ar-1993
+    title: "مواصفات الدستور الغذائي للمانجو (CODEX STAN 184-1993)"
+    url: "https://www.fao.org/input/download/standards/315/CXS_184a.pdf"
+    format: pdf
+    lang: ar
+    publisher: "FAO/WHO Codex Alimentarius Commission"
+    year: 2005
+    license: "unknown"
+    topics: [export_standards, quality_grades, sizing, tolerances, labelling]
+    egypt_specific: false
+    verified: true
+    notes: "6 pp. Text layer broken: headings extract, body text comes out garbled. Needs OCR."
+
+  - doc_id: ippc-pt31-mango-vapour-heat-ar-2017
+    title: "معالجة الصحة النباتية رقم 31: معالجة المانجو الهندية بحرارة البخار للتخلص من ذبابة Bactrocera tryoni"
+    url: "https://www.ippc.int/static/media/files/publication/ar/2017/06/PT_31_2017_Ar_2017-06-08.pdf"
+    format: pdf
+    lang: ar
+    publisher: "IPPC / FAO"
+    year: 2017
+    license: "unknown"
+    topics: [postharvest, quarantine_treatment, fruit_flies, export_standards]
+    egypt_specific: false
+    verified: true
+    notes: "3 pp. Text layer has kashida noise (repeated letters); normalise during parsing."
+
+  - doc_id: reefyemen-mango-farm-establishment-1
+    title: "كيف تنشئ مزرعة مانجو ناجحة في اليمن؟ (1)"
+    url: "https://reefyemen.net/%d9%83%d9%8a%d9%81-%d8%aa%d9%86%d8%b4%d8%a6-%d9%85%d8%b2%d8%b1%d8%b9%d8%a9-%d9%85%d8%a7%d9%86%d8%ac%d9%88-%d9%86%d8%a7%d8%ac%d8%ad%d8%a9-%d9%81%d9%8a-%d8%a7%d9%84%d9%8a%d9%85%d9%86%d8%9f-1/"
+    format: html
+    lang: ar
+    publisher: "ريف اليمن"
+    year: 2026
+    license: "copyright ريف اليمن, all rights reserved (free to read)"
+    topics: [establishment, site_selection, varieties]
+    egypt_specific: false
+    verified: true
+    notes: "Yemeni rural media platform."
+
+  - doc_id: reefyemen-mango-farm-establishment-2
+    title: "كيف تنشئ مزرعة مانجو ناجحة في اليمن؟ (2)"
+    url: "https://reefyemen.net/%d9%83%d9%8a%d9%81-%d8%aa%d9%86%d8%b4%d8%a6-%d9%85%d8%b2%d8%b1%d8%b9%d8%a9-%d9%85%d8%a7%d9%86%d8%ac%d9%88-%d9%86%d8%a7%d8%ac%d8%ad%d8%a9-%d9%81%d9%8a-%d8%a7%d9%84%d9%8a%d9%85%d9%86%d8%9f-2/"
+    format: html
+    lang: ar
+    publisher: "ريف اليمن"
+    year: 2026
+    license: "copyright ريف اليمن, all rights reserved (free to read)"
+    topics: [nutrition, irrigation, flowering, pruning]
+    egypt_specific: false
+    verified: true
+
+  - doc_id: reefyemen-mango-irrigation-guide
+    title: "دليل إرشادي لري أشجار المانجو"
+    url: "https://reefyemen.net/%d8%af%d9%84%d9%8a%d9%84-%d8%a5%d8%b1%d8%b4%d8%a7%d8%af%d9%8a-%d9%84%d8%b1%d9%8a-%d8%a3%d8%b4%d8%ac%d8%a7%d8%b1-%d8%a7%d9%84%d9%85%d8%a7%d9%86%d8%ac%d9%88/"
+    format: html
+    lang: ar
+    publisher: "ريف اليمن"
+    year: 2026
+    license: "copyright ريف اليمن, all rights reserved (free to read)"
+    topics: [irrigation]
+    egypt_specific: false
+    verified: true
+
+  - doc_id: elaard-mango-flowering-fruiting-2020
+    title: "بالتفاصيل.. التزهير والإثمار في المانجو"
+    url: "https://www.elaard.com/84151"
+    format: html
+    lang: ar
+    publisher: "الأرض (elaard.com); expert: د. علاء جمعة، جامعة قناة السويس"
+    year: 2020
+    license: "copyright الأرض, all rights reserved (free to read)"
+    topics: [flowering, fruit_set, alternate_bearing]
+    egypt_specific: true
+    verified: true
+
+  - doc_id: elaard-mango-rootstocks-grafted-seedlings-2026
+    title: "شتلات المانجو المطعومة.. كيف تختار الأصل المناسب وتحافظ على نجاح الزراعة؟"
+    url: "https://www.elaard.com/132981"
+    format: html
+    lang: ar
+    publisher: "الأرض (elaard.com); expert: د. علاء جمعة، جامعة قناة السويس"
+    year: 2026
+    license: "copyright الأرض, all rights reserved (free to read)"
+    topics: [rootstock, nursery, establishment, salinity]
+    egypt_specific: true
+    verified: true
+
+  - doc_id: agri2day-mango-flowering-pests-2020
+    title: "د وائل غيث: الآفات التي تهدد المانجو أثناء فترات التزهير والعقد"
+    url: "https://agri2day.com/2020/04/06/%D8%AF-%D9%88%D8%A7%D8%A6%D9%84-%D8%BA%D9%8A%D8%AB-%D8%A7%D9%84%D8%A2%D9%81%D8%A7%D8%AA-%D8%A7%D9%84%D8%AA%D9%8A-%D8%AA%D9%87%D8%AF%D8%AF-%D8%A7%D9%84%D9%85%D8%A7%D9%86%D8%AC%D9%88-%D8%A7%D8%AB%D9%86/"
+    format: html
+    lang: ar
+    publisher: "أجري توداي (agri2day.com)"
+    year: 2020
+    license: "copyright, all rights reserved (free to read)"
+    topics: [flowering, pests, mango_hopper, powdery_mildew, malformation]
+    egypt_specific: true
+    verified: true
+
+  - doc_id: kenana-mango-monthly-calendar
+    title: "المفكرة الشهرية في المانجو"
+    url: "https://kenanaonline.com/users/mohamedhamad/posts/586417"
+    format: html
+    lang: ar
+    publisher: "كنانة أونلاين (blog of م/ محمد سعيد حماده)"
+    year: null
+    license: "unknown"
+    topics: [monthly_calendar, nutrition, irrigation, white_mango_scale, malformation]
+    egypt_specific: true
+    verified: true
+    notes: "Personal blog, low authority, short; kept because it covers the whole crop year month by month."
+
+  - doc_id: youm7-moa-mango-flowering-jan-2020
+    title: "\"الزراعة\" تقدم روشتة لمزارعى المانجو لتنظيم عملية التزهير"
+    url: "https://www.youm7.com/story/2020/1/21/%D8%A7%D9%84%D8%B2%D8%B1%D8%A7%D8%B9%D8%A9-%D8%AA%D9%82%D8%AF%D9%85-%D8%B1%D9%88%D8%B4%D8%AA%D8%A9-%D9%84%D9%85%D8%B2%D8%A7%D8%B1%D8%B9%D9%89-%D8%A7%D9%84%D9%85%D8%A7%D9%86%D8%AC%D9%88-%D9%84%D8%AA%D9%86%D8%B8%D9%8A%D9%85-%D8%B9%D9%85%D9%84%D9%8A%D8%A9-%D8%A7%D9%84%D8%AA%D8%B2%D9%87%D9%8A%D8%B1-%D8%AA%D8%B9%D8%B1%D9%81-%D8%B9%D9%84%D9%8A%D9%87%D8%A7/4585004"
+    format: html
+    lang: ar
+    publisher: "اليوم السابع (reproducing الإدارة المركزية للبساتين, MoA)"
+    year: 2020
+    license: "copyright اليوم السابع, free to read"
+    topics: [flowering, early_panicle_removal]
+    egypt_specific: true
+    verified: true
+    notes: "News reproduction of a MoA extension bulletin."
+
+  - doc_id: youm7-moa-mango-march-2021
+    title: "روشتة لمزارعى المانجو لحماية الأشجار وزيادة الإنتاج فى مارس"
+    url: "https://www.youm7.com/story/2021/3/10/%D8%B1%D9%88%D8%B4%D8%AA%D8%A9-%D9%84%D9%85%D8%B2%D8%A7%D8%B1%D8%B9%D9%89-%D8%A7%D9%84%D9%85%D8%A7%D9%86%D8%AC%D9%88-%D9%84%D8%AD%D9%85%D8%A7%D9%8A%D8%A9-%D8%A7%D9%84%D8%A3%D8%B4%D8%AC%D8%A7%D8%B1-%D9%88%D8%B2%D9%8A%D8%A7%D8%AF%D8%A9-%D8%A7%D9%84%D8%A5%D9%86%D8%AA%D8%A7%D8%AC-%D9%81%D9%89-%D9%85%D8%A7%D8%B1%D8%B3-%D8%AA%D8%B9%D8%B1%D9%81/5239469"
+    format: html
+    lang: ar
+    publisher: "اليوم السابع (reproducing MoA extension sector)"
+    year: 2021
+    license: "copyright اليوم السابع, free to read"
+    topics: [nutrition, micronutrients, irrigation, salinity, pests]
+    egypt_specific: true
+    verified: true
+    notes: "News reproduction of a MoA extension bulletin."
+
+  - doc_id: youm7-moa-mango-fruitfly-harvest-2019
+    title: "خلال موسم الحصاد.. برامج إرشادية لمواجهة ذبابة الفاكهة بحدائق المانجو"
+    url: "https://www.youm7.com/story/2019/7/29/%D8%AE%D9%84%D8%A7%D9%84-%D9%85%D9%88%D8%B3%D9%85-%D8%A7%D9%84%D8%AD%D8%B5%D8%A7%D8%AF-%D8%A8%D8%B1%D8%A7%D9%85%D8%AC-%D8%A5%D8%B1%D8%B4%D8%A7%D8%AF%D9%8A%D8%A9-%D9%84%D9%85%D9%88%D8%A7%D8%AC%D9%87%D8%A9-%D8%B0%D8%A8%D8%A7%D8%A8%D8%A9-%D8%A7%D9%84%D9%81%D8%A7%D9%83%D9%87%D8%A9-%D8%A8%D8%AD%D8%AF%D8%A7%D8%A6%D9%82-%D8%A7%D9%84%D9%85%D8%A7%D9%86%D8%AC%D9%88/4353133"
+    format: html
+    lang: ar
+    publisher: "اليوم السابع (reproducing MoA extension sector)"
+    year: 2019
+    license: "copyright اليوم السابع, free to read"
+    topics: [fruit_flies, bait_spray, traps, harvest]
+    egypt_specific: true
+    verified: true
+    notes: "News reproduction of a MoA extension bulletin."
+
+  - doc_id: elaard-moa-mango-august-2026
+    title: "نصائح الزراعة لمزارعي المانجو في شهر أغسطس.. دليل الحفاظ على المحصول"
+    url: "https://www.elaard.com/132720"
+    format: html
+    lang: ar
+    publisher: "الأرض (reproducing وزارة الزراعة)"
+    year: 2026
+    license: "copyright الأرض, all rights reserved (free to read)"
+    topics: [post_harvest_orchard_care, heat_stress, pruning, nutrition]
+    egypt_specific: true
+    verified: true
+    notes: "News reproduction of a MoA extension bulletin."
+
+  - doc_id: youm7-moa-mango-november-2024
+    title: "تعرف على أهم توصيات وزارة الزراعة لمزارعى المانجو"
+    url: "https://www.youm7.com/story/2024/11/10/%D8%AA%D8%B9%D8%B1%D9%81-%D8%B9%D9%84%D9%89-%D8%A3%D9%87%D9%85-%D8%AA%D9%88%D8%B5%D9%8A%D8%A7%D8%AA-%D9%88%D8%B2%D8%A7%D8%B1%D8%A9-%D8%A7%D9%84%D8%B2%D8%B1%D8%A7%D8%B9%D8%A9-%D9%84%D9%85%D8%B2%D8%A7%D8%B1%D8%B9%D9%89-%D8%A7%D9%84%D9%85%D8%A7%D9%86%D8%AC%D9%88/6772158"
+    format: html
+    lang: ar
+    publisher: "اليوم السابع (reproducing قطاع الإرشاد الزراعي)"
+    year: 2024
+    license: "copyright اليوم السابع, free to read"
+    topics: [winter_care, sucker_removal, bark_beetles, trunk_painting, irrigation]
+    egypt_specific: true
+    verified: true
+    notes: "News reproduction of a MoA extension bulletin."
+
+  - doc_id: dostor-moa-mango-december-2025
+    title: "توصيات فنية لمزارعي محصول المانجو خلال شهر ديسمبر"
+    url: "https://www.dostor.org/5344650"
+    format: html
+    lang: ar
+    publisher: "الدستور (reproducing MoA extension sector)"
+    year: 2025
+    license: "copyright الدستور, free to read"
+    topics: [nutrition, fertigation, copper_spray, bark_beetles]
+    egypt_specific: true
+    verified: true
+    notes: "News reproduction of a MoA extension bulletin; partly overlaps youm7-moa-mango-november-2024."

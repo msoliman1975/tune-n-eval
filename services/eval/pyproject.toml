@@ -1,0 +1,23 @@
+[project]
+name = "agritune-eval"
+version = "0.1.0"
+description = "AgriTune Eval service: measures any reachable model on mango suites"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "accelerate>=1.0",
+    "anthropic>=1.0",
+    "bitsandbytes>=0.50",
+    "fastapi>=0.115",
+    "numpy>=2.0",
+    "peft>=0.15",
+    "pyarrow>=18.0",
+    "pydantic>=2.9",
+    "torch",
+    "transformers>=5.0",
+    "uvicorn>=0.32",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.5,<0.14.0"]
+build-backend = "uv_build"

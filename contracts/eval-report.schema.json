@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agritune.local/contracts/eval-report.schema.json",
+  "title": "EvalReport",
+  "description": "What the Studio renders. Written by the Eval service.",
+  "type": "object",
+  "required": ["id", "models", "suites", "dataset", "scores", "created_at"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "examples": ["eval-0001"] },
+    "models": { "type": "array", "items": { "$ref": "model-ref.schema.json" }, "minItems": 1 },
+    "suites": { "type": "array", "items": { "type": "string" }, "examples": [["mango_mcq@v1", "mango_advice@v1"]] },
+    "dataset": { "type": "string", "description": "DatasetRef as id@version; items come from its heldout split." },
+    "decoding": { "type": "object", "description": "Identical across models, e.g. temperature, max_tokens." },
+    "scores": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["model", "suite", "value", "ci95", "n"],
+        "additionalProperties": false,
+        "properties": {
+          "model": { "type": "string", "description": "ModelRef id." },
+          "suite": { "type": "string" },
+          "metric": { "type": "string", "examples": ["accuracy", "judge_mean"] },
+          "slice": { "type": "object", "additionalProperties": { "type": "string" }, "examples": [{ "lang": "ar" }] },
+          "value": { "type": "number" },
+          "ci95": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+          "n": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "comparisons": {
+      "type": "array",
+      "description": "Paired differences between two models on the same items.",
+      "items": {
+        "type": "object",
+        "required": ["a", "b", "suite", "delta", "ci95"],
+        "properties": {
+          "a": { "type": "string" }, "b": { "type": "string" }, "suite": { "type": "string" },
+          "slice": { "type": "object", "additionalProperties": { "type": "string" } },
+          "delta": { "type": "number", "description": "b minus a." },
+          "ci95": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+          "verdict": { "enum": ["b_better", "a_better", "no_clear_difference"] }
+        }
+      }
+    },
+    "contamination": {
+      "type": "object",
+      "properties": {
+        "overlap_rate": { "type": "number" },
+        "status": { "enum": ["ok", "warn", "not_checked"] }
+      }
+    },
+    "judge": {
+      "type": "object",
+      "properties": { "model": { "type": "string" }, "rubric": { "type": "string" } }
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "workspace_id": { "type": "string", "default": "default" }
+  }
+}

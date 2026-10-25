@@ -5,11 +5,13 @@ description = "AgriTune Train service: fine-tunes small open models on the local
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "fastapi>=0.115",
     "mlflow>=3.17.2",
     "nvidia-ml-py>=13.0",
     "unsloth>=2026.10.8",
     "torch",
     "torchvision",
+    "uvicorn>=0.32",
 ]
 
 [build-system]
