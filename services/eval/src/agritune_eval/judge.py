@@ -1,4 +1,7 @@
-"""Claude judge for open answers, graded against the reference with a versioned rubric.
+"""Judge for open answers, graded against the reference with a versioned rubric.
+
+The default is a local model through Ollama from a different family than the model under test
+(Gemma judging Qwen), so it costs nothing; a claude-* model id switches to the Claude API.
 
 Verdicts are cached by (rubric, question, reference, answer), so re-running a report, or
 evaluating an answer twice, costs nothing.
@@ -40,12 +43,21 @@ def load_env() -> None:
 
 
 class Judge:
-    def __init__(self, rubric: str = "mango_advice_v1", model: str = "claude-opus-5-5", concurrency: int = 6):
+    """Claude for claude-* model ids, otherwise a local model through Ollama (no API cost)."""
+
+    def __init__(self, rubric: str = "mango_advice_v1", model: str = "gemma3:12b", concurrency: int | None = None,
+                 ollama_url: str = "http://127.0.0.1:11434"):
         load_env()
         self.rubric_id, self.model = rubric, model
         self.rubric = (RUBRICS / f"{rubric}.md").read_text(encoding="utf-8")
-        self.client = anthropic.AsyncAnthropic(max_retries=4)
-        self.sem = asyncio.Semaphore(concurrency)
+        self.claude = model.startswith("claude-")
+        if self.claude:
+            self.client = anthropic.AsyncAnthropic(max_retries=4)
+        else:
+            import httpx
+
+            self.ollama = httpx.AsyncClient(base_url=ollama_url, timeout=httpx.Timeout(30, read=600))
+        self.sem = asyncio.Semaphore(concurrency or (6 if self.claude else 2))
         self.cache: dict[str, dict] = {}
         if CACHE.exists():
             for line in CACHE.read_text(encoding="utf-8").splitlines():
@@ -66,28 +78,47 @@ class Judge:
         user = (f"<question>\n{q}\n</question>\n\n<reference_answer>\n{ref}\n</reference_answer>\n\n"
                 f"<candidate_answer>\n{ans or '(empty answer)'}\n</candidate_answer>")
         async with self.sem:
-            resp = await self.client.beta.messages.parse(
-                model=self.model, max_tokens=8000, system=self.rubric,
-                messages=[{"role": "user", "content": user}],
-                output_config={"effort": "low"}, output_format=Verdict,
-                betas=["server-side-fallback-2026-07-01"], fallbacks="default",
-            )
-        self.spent["input_tokens"] += resp.usage.input_tokens
-        self.spent["output_tokens"] += resp.usage.output_tokens
-        if resp.parsed_output is None:
-            raise RuntimeError(f"judge returned no verdict (stop_reason={resp.stop_reason}, id={resp._request_id})")
-        v = resp.parsed_output.model_dump()
+            v = await (self._claude(user) if self.claude else self._ollama(user))
         self.cache[k] = v
         CACHE.parent.mkdir(parents=True, exist_ok=True)
         with CACHE.open("a", encoding="utf-8") as f:
             f.write(json.dumps({"key": k, "verdict": v}, ensure_ascii=False) + "\n")
         return v
 
+    async def _claude(self, user: str) -> dict:
+        resp = await self.client.beta.messages.parse(
+            model=self.model, max_tokens=8000, system=self.rubric,
+            messages=[{"role": "user", "content": user}],
+            output_config={"effort": "low"}, output_format=Verdict,
+            betas=["server-side-fallback-2026-07-01"], fallbacks="default",
+        )
+        self.spent["input_tokens"] += resp.usage.input_tokens
+        self.spent["output_tokens"] += resp.usage.output_tokens
+        if resp.parsed_output is None:
+            raise RuntimeError(f"judge returned no verdict (stop_reason={resp.stop_reason}, id={resp._request_id})")
+        return resp.parsed_output.model_dump()
+
+    async def _ollama(self, user: str) -> dict:
+        body = {"model": self.model, "stream": False, "format": Verdict.model_json_schema(),
+                "messages": [{"role": "system", "content": self.rubric}, {"role": "user", "content": user}],
+                "options": {"temperature": 0, "num_ctx": 8192, "num_predict": 1024}}
+        for attempt in range(3):  # schema-constrained output is reliable; retry the rare malformed one
+            r = await self.ollama.post("/api/chat", json=body)
+            r.raise_for_status()
+            try:
+                return Verdict.model_validate_json(r.json()["message"]["content"]).model_dump()
+            except ValueError:
+                if attempt == 2:
+                    raise RuntimeError(f"{self.model} returned no valid verdict after 3 tries")
+        raise AssertionError("unreachable")
+
     def cost(self) -> float:
         pin, pout = PRICES.get(self.model, (0, 0))
         return self.spent["input_tokens"] / 1e6 * pin + self.spent["output_tokens"] / 1e6 * pout
 
     def estimate(self, n: int) -> str:
+        if not self.claude:
+            return f"{n} judge calls on {self.model} (local, no API cost)"
         pin, pout = PRICES.get(self.model, (0, 0))
         usd = n * (1500 / 1e6 * pin + 700 / 1e6 * pout)  # ~1.5k in (rubric + texts), ~0.7k out
         return f"{n} judge calls on {self.model}: about ${usd:.0f}"

@@ -2,11 +2,17 @@ import { useQuery } from "@tanstack/react-query";
 import { api, type Comparison, type Score } from "../api";
 import { Badge, Card, ErrorNote } from "../ui";
 
-const SUITE_LABEL: Record<string, string> = { "mango_mcq@v1": "Mango MCQ (accuracy)", "mango_advice@v1": "Mango advice (judge, 1–5)" };
+const SUITE_LABEL: Record<string, string> = {
+  "mango_mcq@v1": "Mango MCQ (accuracy)", "mango_ref@v1": "Open answers vs reference (chrF++)",
+  "mango_advice@v1": "Mango advice (judge, 1–5)",
+};
 const SPLIT_LABEL: Record<string, string> = { heldout: "taught facts, new wording", heldout_unseen: "unseen documents" };
 
+// MCQ accuracy and chrF++ are 0-1 and shown as percentages; the judge mean is on a 1-5 scale.
+const isPct = (suite: string) => suite.startsWith("mango_mcq") || suite.startsWith("mango_ref");
+
 function fmt(v: number, suite: string) {
-  return suite.startsWith("mango_mcq") ? `${(v * 100).toFixed(1)}%` : v.toFixed(2);
+  return isPct(suite) ? `${(v * 100).toFixed(1)}%` : v.toFixed(2);
 }
 
 export function EvalDetail({ id }: { id: string }) {
@@ -33,7 +39,7 @@ export function EvalDetail({ id }: { id: string }) {
         <a href="#/evals" className="text-sm text-muted">← Evaluations</a>
         <h1 className="text-2xl font-bold">{id}</h1>
         {r && <p className="text-sm text-muted">{r.dataset} · base vs <span className="font-mono">{r.models.at(-1)?.id}</span>
-          {r.judge?.model ? ` · judge ${r.judge.model}, rubric ${r.judge.rubric}` : " · not judged (MCQ only)"}</p>}
+          {r.judge?.model ? ` · judge ${r.judge.model}, rubric ${r.judge.rubric}` : " · not judged (MCQ and chrF++ only)"}</p>}
       </div>
       <ErrorNote error={rep.error} />
 
@@ -47,8 +53,8 @@ export function EvalDetail({ id }: { id: string }) {
             <tbody>
               {(r?.comparisons ?? []).map((c, i) => {
                 const a = find(c.a, c), b = find(c.b, c);
-                const mcq = c.suite.startsWith("mango_mcq");
-                const d = (x: number) => (mcq ? `${(x * 100).toFixed(1)}` : x.toFixed(2));
+                const pct = isPct(c.suite);
+                const d = (x: number) => (pct ? `${(x * 100).toFixed(1)}` : x.toFixed(2));
                 return (
                   <tr key={i} className={`border-t border-line ${c.slice.lang === "all" ? "font-semibold" : ""}`}>
                     <td className="py-2">{SUITE_LABEL[c.suite] ?? c.suite}</td>
@@ -56,7 +62,7 @@ export function EvalDetail({ id }: { id: string }) {
                     <td className="font-mono">{c.slice.lang}</td>
                     <td className="num text-right">{a ? fmt(a.value, c.suite) : "—"}</td>
                     <td className="num text-right">{b ? fmt(b.value, c.suite) : "—"}</td>
-                    <td className="num text-right">{c.delta >= 0 ? "+" : ""}{d(c.delta)} [{d(c.ci95[0])}, {d(c.ci95[1])}]{mcq ? " pp" : ""}</td>
+                    <td className="num text-right">{c.delta >= 0 ? "+" : ""}{d(c.delta)} [{d(c.ci95[0])}, {d(c.ci95[1])}]{pct ? " pp" : ""}</td>
                     <td className="num text-right text-muted">{b?.n ?? "—"}</td>
                     <td className="pl-4"><Badge value={c.verdict} /></td>
                   </tr>

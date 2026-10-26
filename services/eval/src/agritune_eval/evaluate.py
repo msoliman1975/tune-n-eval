@@ -1,13 +1,17 @@
 """Compares a fine-tuned model with its base on a dataset's heldout splits; writes an EvalReport.
 
     bash run.sh evaluate --model-ref ../../artifacts/train/<run>/model_ref.json \
-                         --dataset ../../artifacts/data/datasets/mango-sft/v0.1          # MCQ only, judge estimate
-    bash run.sh evaluate ... --yes                                                     # also judge open answers
+                         --dataset ../../artifacts/data/datasets/mango-sft/v0.1          # MCQ + chrF++
+    bash run.sh evaluate ... --judge                                                   # + local judge (free)
+    bash run.sh evaluate ... --judge --judge-model claude-opus-5-5                     # + Claude judge (paid)
 
 Suites:
 - mango_mcq@v1: accuracy, letter with the highest next-token probability, averaged over the 4
   rotations of the choices so position bias cancels out.
-- mango_advice@v1: open answers graded by Claude against the reference (rubrics/mango_advice_v1.md).
+- mango_ref@v1: chrF++ of the open answer against the reference answer (0-1). Free and works
+  for Arabic morphology, but rewards wording as well as facts, so it is a supporting signal.
+- mango_advice@v1: open answers graded against the reference with rubrics/mango_advice_v1.md,
+  by a local model through Ollama (default, from a different family than Qwen) or by Claude.
 Every score has a 95% bootstrap interval; fine-tuned vs base is a paired difference on the same items.
 Writes artifacts/eval/{eval_id}/: answers.jsonl, judgments.jsonl, report.json.
 """
@@ -30,7 +34,8 @@ from . import ARTIFACTS
 from .judge import CRITERIA, Judge
 from .stats import mean_ci, paired_delta
 
-SUITE_MCQ, SUITE_ADVICE = "mango_mcq@v1", "mango_advice@v1"
+SUITE_MCQ, SUITE_REF, SUITE_ADVICE = "mango_mcq@v1", "mango_ref@v1", "mango_advice@v1"
+METRIC = {SUITE_MCQ: "accuracy", SUITE_REF: "chrf", SUITE_ADVICE: "judge_mean"}
 DECODING = {"do_sample": False, "max_new_tokens": 400, "thinking": False}
 
 
@@ -53,24 +58,36 @@ def load_items(ds_dir: Path, splits: list[str], open_limit: int, mcq_limit: int)
     return items, ref
 
 
+def chrf(hyp: str, ref: str) -> float:
+    from sacrebleu.metrics import CHRF
+
+    return CHRF(word_order=2).sentence_score(hyp, [ref]).score / 100
+
+
 def score_rows(models: list[str], items: list[dict], per_model: dict) -> tuple[list, list]:
-    """Scores per model x suite x slice, and paired comparisons of the last model vs the first."""
+    """Scores per model x suite x slice, and paired comparisons of the last model vs the first.
+
+    per_model[model][(suite, item_id)] -> per-item score.
+    """
+    suites_of = defaultdict(set)
+    for m in models:
+        for suite, item_id in per_model[m]:
+            suites_of[item_id].add(suite)
     slices = defaultdict(list)  # (suite, split, lang) -> item ids
     for it in items:
-        suite = SUITE_MCQ if it["type"] == "mcq" else SUITE_ADVICE
-        for lang in (it["lang"], "all"):
-            slices[(suite, it["split"], lang)].append(it["id"])
+        for suite in suites_of[it["id"]]:
+            for lang in (it["lang"], "all"):
+                slices[(suite, it["split"], lang)].append(it["id"])
     scores, comps = [], []
     for (suite, split, lang), ids in sorted(slices.items()):
-        metric = "accuracy" if suite == SUITE_MCQ else "judge_mean"
         vals = {}
         for m in models:
-            v = [per_model[m][i] for i in ids if i in per_model[m]]
+            v = [per_model[m][(suite, i)] for i in ids if (suite, i) in per_model[m]]
             if not v:
                 continue
             vals[m] = v
             value, ci = mean_ci(v)
-            scores.append({"model": m, "suite": suite, "metric": metric, "slice": {"split": split, "lang": lang},
+            scores.append({"model": m, "suite": suite, "metric": METRIC[suite], "slice": {"split": split, "lang": lang},
                            "value": round(value, 4), "ci95": [round(x, 4) for x in ci], "n": len(v)})
         a, b = models[0], models[-1]
         if a in vals and b in vals and len(vals[a]) == len(vals[b]):
@@ -88,8 +105,8 @@ def main() -> None:
     ap.add_argument("--splits", nargs="+", default=["heldout", "heldout_unseen"])
     ap.add_argument("--open-limit", type=int, default=200, help="open questions per split (0 = all)")
     ap.add_argument("--mcq-limit", type=int, default=0, help="MCQ per split (0 = all)")
-    ap.add_argument("--judge-model", default="claude-opus-5-5")
-    ap.add_argument("--yes", action="store_true", help="call the Claude judge")
+    ap.add_argument("--judge", "--yes", action="store_true", help="grade open answers with the judge model")
+    ap.add_argument("--judge-model", default="gemma3:12b", help="an Ollama model, or a claude-* model id (paid)")
     ap.add_argument("--batch", type=int, default=8)
     ap.add_argument("--eval-id", help="set by the API, which creates the folder first")
     a = ap.parse_args()
@@ -106,36 +123,41 @@ def main() -> None:
     print(f"{eval_id}: {len(mcq_items)} MCQ + {len(open_items)} open items x 2 models "
           f"({ref['id']}@{ref['version']}, splits {', '.join(a.splits)})")
 
+    import torch
+
     from .targets import HFTarget
 
     target = HFTarget(ft["base"], str(ARTIFACTS.parent / ft["uri"]))
     answers: dict[str, dict[str, str]] = {}
-    mcq_ok: dict[str, dict[str, float]] = {}
+    per_model: dict[str, dict[tuple[str, str], float]] = {m: {} for m in models}
     for m, adapter in ((base["id"], False), (ft["id"], True)):
         t0 = time.time()
         with target.use(adapter):
             picks = target.mcq(mcq_items, batch=a.batch)
             gens = target.generate([it["question"] for it in open_items], DECODING["max_new_tokens"], a.batch)
-        # credit = share of the 4 choice rotations answered correctly
-        mcq_ok[m] = {it["id"]: sum(x == it["answer"] for x in p) / 4 for it, p in zip(mcq_items, picks)}
+        for it, p in zip(mcq_items, picks):  # credit = share of the 4 choice rotations answered correctly
+            per_model[m][(SUITE_MCQ, it["id"])] = sum(x == it["answer"] for x in p) / 4
+        for it, g in zip(open_items, gens):
+            per_model[m][(SUITE_REF, it["id"])] = chrf(g, it["answer"])
         answers[m] = {it["id"]: g for it, g in zip(open_items, gens)}
         with (out / "answers.jsonl").open("a", encoding="utf-8") as f:
             for it, p in zip(mcq_items, picks):
                 f.write(json.dumps({"model": m, "item": it["id"], "type": "mcq", "picks": p, "correct": it["answer"]}) + "\n")
             for it, g in zip(open_items, gens):
                 f.write(json.dumps({"model": m, "item": it["id"], "type": "open_qa", "answer": g}, ensure_ascii=False) + "\n")
-        acc = sum(mcq_ok[m].values()) / max(len(mcq_ok[m]), 1)
-        print(f"{m}: MCQ accuracy {acc:.3f}, {len(gens)} open answers in {time.time() - t0:.0f}s", flush=True)
+        acc = [v for (s, _), v in per_model[m].items() if s == SUITE_MCQ]
+        print(f"{m}: MCQ accuracy {sum(acc) / max(len(acc), 1):.3f}, {len(gens)} open answers in {time.time() - t0:.0f}s",
+              flush=True)
     del target
     gc.collect()
+    torch.cuda.empty_cache()  # a local judge needs the GPU next
 
-    judge = Judge(model=a.judge_model)
-    triples = [(it["question"], it["answer"], answers[m][it["id"]]) for m in models for it in open_items]
-    per_model: dict[str, dict[str, float]] = {m: dict(mcq_ok[m]) for m in models}
     judged = False
-    if open_items and not a.yes:
-        print(judge.estimate(judge.pending(triples)) + ". Re-run with --yes to judge; this report has MCQ only.")
-    elif open_items:
+    if open_items and a.judge:
+        judge = Judge(model=a.judge_model)
+        triples = [(it["question"], it["answer"], answers[m][it["id"]]) for m in models for it in open_items]
+        print(judge.estimate(judge.pending(triples)), flush=True)
+
         async def run() -> list[dict]:
             return await asyncio.gather(*(judge.grade(*t) for t in triples))
 
@@ -146,13 +168,15 @@ def main() -> None:
             for m in models:
                 for it in open_items:
                     v = verdicts[k]; k += 1
-                    per_model[m][it["id"]] = sum(v[c] for c in CRITERIA) / len(CRITERIA)
+                    per_model[m][(SUITE_ADVICE, it["id"])] = sum(v[c] for c in CRITERIA) / len(CRITERIA)
                     f.write(json.dumps({"model": m, "item": it["id"]} | v, ensure_ascii=False) + "\n")
-        print(f"judge spent about ${judge.cost():.2f}")
+        if a.judge_model.startswith("claude-"):
+            print(f"judge spent about ${judge.cost():.2f}")
 
     scores, comps = score_rows(models, items, per_model)
+    suites = [SUITE_MCQ] + ([SUITE_REF] if open_items else []) + ([SUITE_ADVICE] if judged else [])
     report = {
-        "id": eval_id, "models": [base, ft], "suites": [SUITE_MCQ] + ([SUITE_ADVICE] if judged else []),
+        "id": eval_id, "models": [base, ft], "suites": suites,
         "dataset": f"{ref['id']}@{ref['version']}", "decoding": DECODING, "scores": scores, "comparisons": comps,
         "contamination": {"status": "not_checked"},
         "judge": {"model": a.judge_model, "rubric": "mango_advice_v1"} if judged else {},

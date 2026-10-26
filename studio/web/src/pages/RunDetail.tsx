@@ -104,7 +104,7 @@ function EvaluateCard({ modelRef, datasets, defaultDataset }:
         </Field>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={judge} onChange={(e) => setJudge(e.target.checked)} />
-          Judge open answers with Claude (costs money; MCQ always runs)
+          Also judge open answers with local Gemma 3 12B (free, adds time; MCQ and chrF++ always run)
         </label>
         <Button disabled={!dataset || go.isPending} onClick={() => go.mutate()}>Run evaluation</Button>
       </div>

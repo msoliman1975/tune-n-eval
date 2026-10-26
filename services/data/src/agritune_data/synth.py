@@ -1,7 +1,8 @@
-"""Generates training and eval items from chunks with Claude.
+"""Generates training and eval items from chunks with a local model (Ollama) or Claude.
 
-    bash run.sh synth                 # print the plan and a cost estimate, call nothing
-    bash run.sh synth --yes           # run; resumes where it stopped
+    bash run.sh synth                 # print the plan and an estimate, generate nothing
+    bash run.sh synth --yes           # run with the default local model; resumes where it stopped
+    bash run.sh synth --yes --model claude-opus-5-5   # same prompt and schema on Claude (paid)
     bash run.sh synth --yes --limit 5 # try a few chunks first
     bash run.sh synth --per-doc 12    # cap chunks per document so long manuals don't dominate
 
@@ -16,6 +17,8 @@ import argparse
 import asyncio
 import json
 import os
+import re
+import time
 from typing import Literal
 
 import anthropic
@@ -86,6 +89,11 @@ Rules for every item:
 - Choices are the bare option text, without "A)" prefixes."""
 
 
+META = re.compile(r"\b(the|this) (text|passage|document|study|article|authors?)\b|according to the|"
+                  r"\b(ل?لنص|النص|المادة العلمية|هذه الدراسة|المقال|المقالة|الفقرة|المؤلفون?)\b",  # \b: not النصف
+                  re.I)
+
+
 def chunk_key(c: dict) -> str:
     return f"{c['doc_id']}#{c['chunk']}"
 
@@ -114,6 +122,8 @@ def to_items(c: dict, facts: list[Fact], model: str) -> tuple[list[dict], int]:
             ok = bool(q and ans)
             if typ == "mcq":
                 ok &= choices is not None and len(choices) == 4 and len({x.strip() for x in choices}) == 4
+            # questions must stand alone: drop ones that point at "the text" (local models slip here)
+            ok &= not META.search(q)
             # the language check catches items written in the wrong language
             r = arabic_ratio(q + " " + (ans if typ == "open_qa" else " ".join(choices or [])))
             ok &= r > 0.5 if lang == "ar" else r < 0.2
@@ -128,9 +138,41 @@ def to_items(c: dict, facts: list[Fact], model: str) -> tuple[list[dict], int]:
     return items, dropped
 
 
-async def run_chunk(client: anthropic.AsyncAnthropic, c: dict, model: str) -> tuple[list[Fact], dict]:
-    user = (f"Eval language: {'Modern Standard Arabic' if eval_lang(c) == 'ar' else 'English'}\n"
+def user_prompt(c: dict) -> str:
+    return (f"Eval language: {'Modern Standard Arabic' if eval_lang(c) == 'ar' else 'English'}\n"
             f"Source: {c['doc_id']} (section: {c['heading'] or 'none'})\n\n<passage>\n{c['text']}\n</passage>")
+
+
+def is_claude(model: str) -> bool:
+    return model.startswith("claude-")
+
+
+async def run_chunk(clients: dict, c: dict, model: str) -> tuple[list[Fact], dict]:
+    return await (run_claude if is_claude(model) else run_ollama)(clients, c, model)
+
+
+async def run_ollama(clients: dict, c: dict, model: str) -> tuple[list[Fact], dict]:
+    """Local model through Ollama, constrained to the same JSON schema. No API cost."""
+    body = {"model": model, "stream": False, "format": ChunkFacts.model_json_schema(),
+            "messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": user_prompt(c)}],
+            "options": {"temperature": 0.3, "num_ctx": 8192, "num_predict": 6000}}
+    if model.startswith("qwen3"):
+        body["think"] = False  # the schema already structures the work; thinking would triple the time
+    r = await clients["ollama"].post("/api/chat", json=body)
+    r.raise_for_status()
+    data = r.json()
+    usage = {"input_tokens": data.get("prompt_eval_count", 0), "output_tokens": data.get("eval_count", 0),
+             "stop_reason": data.get("done_reason", "stop"), "model": model,
+             "seconds": round(data.get("total_duration", 0) / 1e9, 1)}
+    try:
+        return ChunkFacts.model_validate_json(data["message"]["content"]).facts, usage
+    except ValueError:
+        return [], usage | {"stop_reason": "invalid_json"}
+
+
+async def run_claude(clients: dict, c: dict, model: str) -> tuple[list[Fact], dict]:
+    client: anthropic.AsyncAnthropic = clients["claude"]
+    user = user_prompt(c)
     resp = await client.beta.messages.parse(
         model=model,
         max_tokens=16000,
@@ -151,19 +193,25 @@ async def run_chunk(client: anthropic.AsyncAnthropic, c: dict, model: str) -> tu
 def estimate(chunks: list[dict], model: str) -> str:
     # ~3.5 chars/token for English, ~2.5 for Arabic; output ~900 tokens per fact incl. thinking, ~4 facts.
     tin = sum(len(c["text"]) / (2.5 if c["lang"] == "ar" else 3.5) + 600 for c in chunks)
-    tout = len(chunks) * 4 * 900
+    tout = len(chunks) * 4 * (900 if is_claude(model) else 500)
+    head = (f"{len(chunks)} chunks -> ~{len(chunks) * 4} facts, ~{len(chunks) * 8} train Q&A, "
+            f"~{len(chunks) * 8} eval items\n~{tin / 1e6:.2f}M input + ~{tout / 1e6:.2f}M output tokens on {model}: ")
+    if not is_claude(model):
+        return head + "no API cost (local model); time depends on GPU throughput, see the per-chunk seconds"
     pin, pout = PRICES.get(model, (0, 0))
-    usd = tin / 1e6 * pin + tout / 1e6 * pout
-    return (f"{len(chunks)} chunks -> ~{len(chunks) * 4} facts, ~{len(chunks) * 8} train Q&A, "
-            f"~{len(chunks) * 8} eval items\n~{tin / 1e6:.2f}M input + ~{tout / 1e6:.2f}M output tokens "
-            f"on {model}: about ${usd:.0f}")
+    return head + f"about ${tin / 1e6 * pin + tout / 1e6 * pout:.0f}"
 
 
 async def main_async(a: argparse.Namespace) -> None:
+    items_path, done_path = ITEMS, DONE
+    if a.tag:  # a side run (e.g. a model bake-off) that must not touch the main items file
+        items_path, done_path = ARTIFACTS / f"items.{a.tag}.jsonl", ARTIFACTS / f"synth_done.{a.tag}.jsonl"
     chunks = [json.loads(l) for l in CHUNKS.read_text(encoding="utf-8").splitlines()]
+    if a.docs:
+        chunks = [c for c in chunks if c["doc_id"] in a.docs.split(",")]
     done = set()
-    if DONE.exists():
-        done = {json.loads(l)["key"] for l in DONE.read_text(encoding="utf-8").splitlines()}
+    if done_path.exists():
+        done = {json.loads(l)["key"] for l in done_path.read_text(encoding="utf-8").splitlines()}
     if a.per_doc:  # spread the budget across sources: keep at most N chunks per document, evenly spaced
         by_doc: dict[str, list[dict]] = {}
         for c in chunks:
@@ -174,42 +222,54 @@ async def main_async(a: argparse.Namespace) -> None:
     print(f"{len(done)} chunks already done; to do now:")
     print(estimate(todo, a.model))
     if not a.yes or not todo:
-        print("Dry run. Re-run with --yes to call Claude." if todo else "Nothing to do.")
+        print("Dry run. Re-run with --yes to generate." if todo else "Nothing to do.")
         return
 
-    client = anthropic.AsyncAnthropic(max_retries=4)
+    import httpx
+
+    clients = {"ollama": httpx.AsyncClient(base_url=a.ollama_url, timeout=httpx.Timeout(30, read=1800))}
+    if is_claude(a.model):
+        clients["claude"] = anthropic.AsyncAnthropic(max_retries=4)
     sem = asyncio.Semaphore(a.concurrency)
     totals = {"items": 0, "dropped": 0, "in": 0, "out": 0, "failed": 0}
     lock = asyncio.Lock()
+    t0 = time.time()
 
     async def one(c: dict) -> None:
         async with sem:
             try:
-                facts, usage = await run_chunk(client, c, a.model)
+                facts, usage = await run_chunk(clients, c, a.model)
             except anthropic.BadRequestError as e:
                 raise SystemExit(f"Request rejected; fix before re-running: {e.message}")
-            except (anthropic.APIStatusError, anthropic.APIConnectionError) as e:
+            except (anthropic.APIStatusError, anthropic.APIConnectionError, httpx.HTTPError) as e:
                 async with lock:
                     totals["failed"] += 1
-                print(f"failed  {chunk_key(c)}  {type(e).__name__}", flush=True)
+                print(f"failed  {chunk_key(c)}  {type(e).__name__}: {e}"[:200], flush=True)
                 return  # not marked done, so the next run retries it
+        if usage["stop_reason"] == "invalid_json":
+            async with lock:
+                totals["failed"] += 1
+            print(f"failed  {chunk_key(c)}  output did not match the schema", flush=True)
+            return
         items, dropped = to_items(c, facts, usage["model"])
         async with lock:
-            with ITEMS.open("a", encoding="utf-8") as f:
+            with items_path.open("a", encoding="utf-8") as f:
                 f.writelines(json.dumps(i, ensure_ascii=False) + "\n" for i in items)
-            with DONE.open("a", encoding="utf-8") as f:
+            with done_path.open("a", encoding="utf-8") as f:
                 f.write(json.dumps({"key": chunk_key(c), "facts": len(facts), "items": len(items),
                                     "dropped": dropped} | usage) + "\n")
             totals["items"] += len(items); totals["dropped"] += dropped
             totals["in"] += usage["input_tokens"]; totals["out"] += usage["output_tokens"]
-        note = "" if usage["stop_reason"] == "end_turn" else f"  stop={usage['stop_reason']}"
-        print(f"{len(facts):2} facts {len(items):3} items  {chunk_key(c)}{note}", flush=True)
+        note = "" if usage["stop_reason"] in ("end_turn", "stop") else f"  stop={usage['stop_reason']}"
+        secs = f"  {usage['seconds']}s" if "seconds" in usage else ""
+        print(f"{len(facts):2} facts {len(items):3} items  {chunk_key(c)}{secs}{note}", flush=True)
 
     await asyncio.gather(*(one(c) for c in todo))
     pin, pout = PRICES.get(a.model, (0, 0))
     cost = totals["in"] / 1e6 * pin + totals["out"] / 1e6 * pout
     print(f"\n{totals['items']} items written, {totals['dropped']} dropped by checks, "
-          f"{totals['failed']} chunks failed (re-run to retry). Spent about ${cost:.2f}.")
+          f"{totals['failed']} chunks failed (re-run to retry). {time.time() - t0:.0f}s, "
+          f"{totals['out']} output tokens" + (f", spent about ${cost:.2f}." if is_claude(a.model) else "."))
 
 
 def load_env() -> None:
@@ -223,11 +283,14 @@ def load_env() -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--yes", action="store_true", help="actually call Claude")
+    ap.add_argument("--yes", action="store_true", help="actually generate")
     ap.add_argument("--limit", type=int, default=0, help="only this many chunks")
     ap.add_argument("--per-doc", type=int, default=0, help="at most this many chunks per document (0 = all)")
-    ap.add_argument("--concurrency", type=int, default=6)
-    ap.add_argument("--model", default="claude-opus-5-5")
+    ap.add_argument("--concurrency", type=int, default=2, help="parallel requests (Claude handles ~6)")
+    ap.add_argument("--model", default="qwen3:14b", help="an Ollama model, or a claude-* model id")
+    ap.add_argument("--ollama-url", default="http://127.0.0.1:11434")
+    ap.add_argument("--tag", help="write items.<tag>.jsonl instead of items.jsonl (for side runs)")
+    ap.add_argument("--docs", help="comma-separated doc_ids to restrict to")
     a = ap.parse_args()
     load_env()
     asyncio.run(main_async(a))
