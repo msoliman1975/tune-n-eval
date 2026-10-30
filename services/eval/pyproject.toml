@@ -1,15 +1,17 @@
 [project]
 name = "agritune-eval"
-version = "0.1.0"
-description = "AgriTune Eval service: measures any reachable model on mango suites"
+version = "0.2.0"
+description = "AgriTune Eval service: measures any registry model on any task's dataset"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "accelerate>=1.0",
+    "agritune-core",
     "anthropic>=1.0",
     "bitsandbytes>=0.50",
     "fastapi>=0.115",
     "httpx>=0.28",
+    "nltk>=3.9",
     "numpy>=2.0",
     "peft>=0.15",
     "pyarrow>=18.0",
@@ -19,6 +21,12 @@ dependencies = [
     "transformers>=5.0",
     "uvicorn>=0.32",
 ]
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
+[tool.uv.sources]
+agritune-core = { path = "../../packages/core", editable = true }
 
 [build-system]
 requires = ["uv_build>=0.13.5,<0.14.0"]

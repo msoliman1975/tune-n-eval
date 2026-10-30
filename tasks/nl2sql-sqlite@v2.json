@@ -1,0 +1,18 @@
+{
+  "id": "nl2sql-sqlite",
+  "version": "v2",
+  "name": "Natural language to SQL (SQLite) with external knowledge",
+  "description": "v1 plus an optional evidence input: a hint that maps the question's words to the data (BIRD's \"external knowledge\", e.g. \"eligible free rate = Free Meal Count / Enrollment\"). The hint line is left out when an item has none, so a v1 dataset renders the same under v2.",
+  "system": "You are an expert SQLite developer. Given a database schema and a question, write one SQLite query that answers the question. Use only tables and columns from the schema. Reply with the SQL query only, no explanation.",
+  "user_template": "Database schema:\n{schema}\n\nQuestion: {question}[[\nExternal knowledge: {evidence}]]",
+  "inputs": ["question", "db_id", "evidence"],
+  "optional": ["evidence"],
+  "target": "sql",
+  "context": {"schema": {"type": "sqlite_schema", "db_field": "db_id", "sample_rows": 3, "max_value_chars": 40}},
+  "attachments": {"type": "sqlite_dbs", "layout": "{db_id}/{db_id}.sqlite", "key": "db_id"},
+  "decoding": {"max_new_tokens": 400},
+  "metrics": {
+    "available": ["sql_exec", "sql_exact_set", "sql_valid", "exact_match", "latency", "sql_failure_judge"],
+    "default": ["sql_exec", "sql_valid", "latency"]
+  }
+}

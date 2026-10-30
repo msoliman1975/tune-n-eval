@@ -1,0 +1,17 @@
+{
+  "id": "mango-qa",
+  "version": "v1",
+  "name": "Mango agronomy Q&A (EN + AR)",
+  "description": "Practical advice for mango growers in Egypt, in the language of the question. Datasets frozen before tasks existed (mango-sft) use this task; only their open questions apply.",
+  "system": "You are AgriTune, an adviser for mango growers in Egypt. Answer in the language of the question, clearly and practically.",
+  "user_template": "{question}",
+  "inputs": ["question"],
+  "target": "answer",
+  "row_filter": {"type": "open_qa"},
+  "decoding": {"max_new_tokens": 400},
+  "rubric": "mango_advice_v1",
+  "metrics": {
+    "available": ["chrf", "exact_match", "llm_judge", "latency"],
+    "default": ["chrf", "latency"]
+  }
+}

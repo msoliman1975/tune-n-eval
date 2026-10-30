@@ -1,0 +1,16 @@
+{
+  "id": "qa",
+  "version": "v1",
+  "name": "Question answering",
+  "description": "Answer a question; scored against a reference answer by string metrics or an LLM judge.",
+  "system": "Answer the question accurately and concisely.",
+  "user_template": "{question}",
+  "inputs": ["question"],
+  "target": "answer",
+  "decoding": {"max_new_tokens": 400},
+  "rubric": "qa_reference_v1",
+  "metrics": {
+    "available": ["exact_match", "chrf", "llm_judge", "latency"],
+    "default": ["chrf", "latency"]
+  }
+}

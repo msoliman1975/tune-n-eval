@@ -14,8 +14,10 @@ import json
 import subprocess
 from pathlib import Path
 
+from agritune_core.tasks import load_task
+
 from .presets import SYSTEM_PROMPT
-from .sft import RUNS, ARTIFACTS, now
+from .sft import RUNS, ARTIFACTS, now, register
 
 
 def main() -> None:
@@ -41,12 +43,14 @@ def main() -> None:
         raise SystemExit(f"no GGUF written under {out}")
     gguf = next((g for g in ggufs if a.quant.upper() in g.name.upper()), ggufs[-1])
 
-    # Unsloth writes a Modelfile with the right chat template; add our system prompt to it.
+    # Unsloth writes a Modelfile with the right chat template; add the task's system prompt as the
+    # default (Eval and the playground send it explicitly anyway).
+    system = load_task(ref["lineage"]["task"]).system if ref["lineage"].get("task") else SYSTEM_PROMPT
     generated = next(out.rglob("Modelfile"), None)
     body = generated.read_text(encoding="utf-8") if generated else ""
     lines = [l for l in body.splitlines() if not l.startswith(("FROM ", "SYSTEM "))]
     modelfile = out / "Modelfile.agritune"
-    modelfile.write_text("\n".join([f"FROM {gguf}", f'SYSTEM """{SYSTEM_PROMPT}"""', *lines]) + "\n", encoding="utf-8")
+    modelfile.write_text("\n".join([f"FROM {gguf}", f'SYSTEM """{system}"""', *lines]) + "\n", encoding="utf-8")
     subprocess.run(["ollama", "create", tag, "-f", str(modelfile)], check=True)
 
     ollama_ref = {
@@ -55,6 +59,7 @@ def main() -> None:
         "lineage": ref["lineage"] | {"parent": ref["id"]}, "created_at": now(), "workspace_id": "default",
     }
     (run / f"model_ref.{a.quant}.json").write_text(json.dumps(ollama_ref, indent=2), encoding="utf-8")
+    register(a.run)  # the registry records the Ollama tag on the run's entry
     print(json.dumps({"gguf": str(gguf), "size_gb": round(gguf.stat().st_size / 1024**3, 2), "ollama_tag": tag}, indent=2))
 
 

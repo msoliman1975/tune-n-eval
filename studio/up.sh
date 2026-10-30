@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Starts the Data, Train and Eval APIs and the Studio gateway as systemd user units, so they keep
+# Starts the Registry, Data, Train and Eval APIs and the Studio gateway as systemd user units, so they keep
 # running after the shell (or the `wsl` call) that started them exits.
 #   bash studio/up.sh            # then open http://localhost:8100
 #   bash studio/up.sh stop
@@ -8,10 +8,11 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 UV=~/.local/bin/uv
-NAMES=(data train eval studio)
-declare -A DIRS=([data]=services/data [train]=services/train [eval]=services/eval [studio]=studio/api)
-declare -A MODS=([data]=agritune_data.api [train]=agritune_train.api [eval]=agritune_eval.api [studio]=agritune_studio_api)
-declare -A PORTS=([data]=8101 [train]=8102 [eval]=8103 [studio]=8100)
+NAMES=(registry data train eval studio)
+declare -A DIRS=([registry]=services/registry [data]=services/data [train]=services/train [eval]=services/eval [studio]=studio/api)
+declare -A MODS=([registry]=agritune_registry.api [data]=agritune_data.api [train]=agritune_train.api
+                 [eval]=agritune_eval.api [studio]=agritune_studio_api)
+declare -A PORTS=([registry]=8104 [data]=8101 [train]=8102 [eval]=8103 [studio]=8100)
 
 # user units must outlive the login session
 loginctl show-user "$USER" -p Linger 2>/dev/null | grep -q yes || sudo loginctl enable-linger "$USER"

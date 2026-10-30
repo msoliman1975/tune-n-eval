@@ -1,11 +1,13 @@
 [project]
 name = "agritune-train"
-version = "0.1.0"
-description = "AgriTune Train service: fine-tunes small open models on the local GPU"
+version = "0.2.0"
+description = "AgriTune Train service: fine-tunes small open models on the local GPU, for any task"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "agritune-core",
     "fastapi>=0.115",
+    "httpx>=0.28",
     "mlflow>=3.17.2",
     "nvidia-ml-py>=13.0",
     "unsloth>=2026.10.8",
@@ -13,6 +15,9 @@ dependencies = [
     "torchvision",
     "uvicorn>=0.32",
 ]
+
+[tool.uv.sources]
+agritune-core = { path = "../../packages/core", editable = true }
 
 [build-system]
 requires = ["uv_build>=0.13.5,<0.14.0"]

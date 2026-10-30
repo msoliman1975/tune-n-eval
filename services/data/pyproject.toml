@@ -1,20 +1,28 @@
 [project]
 name = "agritune-data"
-version = "0.1.0"
-description = "AgriTune Data service: turns mango sources into versioned, split datasets"
+version = "0.2.0"
+description = "AgriTune Data service: uploads, task mapping and versioned, split datasets (plus the mango document pipeline)"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "agritune-core",
     "anthropic>=1.0",
     "docling>=2.0",
     "fastapi>=0.115",
     "httpx>=0.28",
     "pyarrow>=18.0",
     "pydantic>=2.9",
+    "python-multipart>=0.0.20",
     "pyyaml>=6.0",
     "trafilatura>=2.0",
     "uvicorn>=0.32",
 ]
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
+[tool.uv.sources]
+agritune-core = { path = "../../packages/core", editable = true }
 
 [build-system]
 requires = ["uv_build>=0.13.5,<0.14.0"]

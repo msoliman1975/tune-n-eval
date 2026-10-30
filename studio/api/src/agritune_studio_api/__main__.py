@@ -10,7 +10,8 @@ from fastapi.responses import FileResponse, JSONResponse, Response, StreamingRes
 from fastapi.staticfiles import StaticFiles
 from starlette.background import BackgroundTask
 
-SERVICES = {"data": "http://127.0.0.1:8101", "train": "http://127.0.0.1:8102", "eval": "http://127.0.0.1:8103"}
+SERVICES = {"data": "http://127.0.0.1:8101", "train": "http://127.0.0.1:8102", "eval": "http://127.0.0.1:8103",
+            "registry": "http://127.0.0.1:8104"}
 WEB = Path(__file__).resolve().parents[3] / "web" / "dist"
 
 app = FastAPI(title="agritune-studio", version="0.1.0")
@@ -28,7 +29,7 @@ async def health() -> dict:
     return out
 
 
-@app.api_route("/api/{service}/{path:path}", methods=["GET", "POST", "DELETE"])
+@app.api_route("/api/{service}/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 async def proxy(service: str, path: str, request: Request):
     if service not in SERVICES:
         return JSONResponse({"detail": f"unknown service {service}"}, status_code=404)
@@ -43,7 +44,8 @@ async def proxy(service: str, path: str, request: Request):
                                  background=BackgroundTask(resp.aclose), headers={"cache-control": "no-cache"})
     body = await resp.aread()
     await resp.aclose()
-    return Response(body, status_code=resp.status_code, media_type=resp.headers.get("content-type"))
+    keep = {k: v for k, v in resp.headers.items() if k.lower() == "content-disposition"}  # downloads keep their filename
+    return Response(body, status_code=resp.status_code, media_type=resp.headers.get("content-type"), headers=keep)
 
 
 if WEB.exists():

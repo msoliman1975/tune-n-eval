@@ -1,7 +1,8 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { api, type JobEvent } from "../api";
+import { api, type DatasetRef, type JobEvent, type RunSummary } from "../api";
 import { LineChart } from "../LineChart";
+import { DeleteFineTune } from "./Models";
 import { Badge, Button, Card, ErrorNote, Field, inputCls } from "../ui";
 
 const css = (v: string) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
@@ -31,7 +32,7 @@ export function RunDetail({ id }: { id: string }) {
     return {
       loss: [
         { name: "train loss", data: pts("loss"), color: css("--color-accent") },
-        { name: "eval loss (reworded questions)", data: pts("eval_loss"), color: css("--color-mango"), dashed: true },
+        { name: "eval loss (validation)", data: pts("eval_loss"), color: css("--color-mango"), dashed: true },
       ],
       gpu: [{ name: "VRAM GB", data: pts("vram_gb"), color: css("--color-accent") }],
       temp: [{ name: "GPU °C", data: pts("gpu_temp_c"), color: css("--color-warn") }],
@@ -50,6 +51,7 @@ export function RunDetail({ id }: { id: string }) {
           <a href="#/training" className="text-sm text-muted">← Runs</a>
           <h1 className="text-2xl font-bold">{id}</h1>
           <p className="text-sm text-muted">{r?.message}</p>
+          {r?.logs?.map((l, i) => <p key={i} className="text-xs text-muted">{l}</p>)}
         </div>
         <div className="flex items-center gap-3">
           <Badge value={shownStatus} />
@@ -78,9 +80,30 @@ export function RunDetail({ id }: { id: string }) {
           </dl>
         </Card>
       )}
-      {r?.model_ref && <EvaluateCard modelRef={`artifacts/train/${id}/model_ref.json`} datasets={datasets.data ?? []}
-                                       defaultDataset={r.model_ref.lineage?.dataset} />}
+      {r?.model_ref && <NextSteps id={id} r={r} datasets={datasets.data ?? []} />}
+      {r?.model_ref && r.model_ref.lineage?.dataset?.startsWith("mango") &&
+        <EvaluateCard modelRef={`artifacts/train/${id}/model_ref.json`} datasets={datasets.data ?? []} defaultDataset={r.model_ref.lineage?.dataset} />}
+      {r && ["succeeded", "failed", "cancelled", "unknown"].includes(r.status) && <DeleteFineTune runId={id} onDeleted={() => { location.hash = "#/training"; }} />}
     </div>
+  );
+}
+
+function NextSteps({ id, r, datasets }: { id: string; r: RunSummary; datasets: DatasetRef[] }) {
+  const ds = datasets.find((d) => `${d.id}@${d.version}` === r.model_ref?.lineage?.dataset);
+  const base = r.model_ref?.lineage?.base_model;
+  const exp = useMutation({ mutationFn: () => api.exportRun(id) });
+  const exportStatus = r.export?.ollama_tag ? `in Ollama as ${r.export.ollama_tag}` : r.export?.status;
+  return (
+    <Card title="Next">
+      <div className="flex flex-wrap items-center gap-3">
+        <a className="rounded-md bg-accent px-3 py-1.5 text-sm text-bg" href={`#/evals/new?models=${[base, id].filter(Boolean).join(",")}${ds ? `&dataset=${encodeURIComponent(ds.path)}` : ""}`}>
+          Evaluate against {base ?? "the base"}
+        </a>
+        <Button tone="plain" disabled={exp.isPending || !!r.export?.ollama_tag || r.export?.status === "queued"} onClick={() => exp.mutate()}>Export to Ollama (for the playground)</Button>
+        {exportStatus && <span className="text-sm text-muted">{exportStatus}</span>}
+      </div>
+      <ErrorNote error={exp.error} />
+    </Card>
   );
 }
 
@@ -95,7 +118,7 @@ function EvaluateCard({ modelRef, datasets, defaultDataset }:
     onSuccess: (r) => { location.hash = `#/evals/${r.id}`; },
   });
   return (
-    <Card title="Evaluate against the base model">
+    <Card title="Mango evaluation (MCQ + chrF++ + judge)">
       <div className="flex flex-wrap items-end gap-4">
         <Field label="Dataset">
           <select className={inputCls} value={dataset} onChange={(e) => setDataset(e.target.value)}>

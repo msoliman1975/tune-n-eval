@@ -35,12 +35,15 @@ def run_one(name: str) -> dict:
     from trl import SFTConfig, SFTTrainer
     from unsloth import FastModel
 
+    from .sft import no_allocator_warmup
+
+    no_allocator_warmup()
     p = PRESETS[name]
     torch.cuda.reset_peak_memory_stats()
     t_load = time.time()
     model, tok = FastModel.from_pretrained(
         model_name=p["model"], max_seq_length=p["seq"], load_in_4bit=p["load_in_4bit"],
-        full_finetuning=False,
+        full_finetuning=False, device_map={"": 0},  # see sft.py
     )
     load_s = time.time() - t_load
     model = FastModel.get_peft_model(
@@ -48,7 +51,7 @@ def run_one(name: str) -> dict:
         target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
         use_gradient_checkpointing="unsloth", random_state=0,
     )
-    text_tok = getattr(tok, "tokenizer", tok)  # Gemma 3 returns a processor
+    text_tok = getattr(tok, "tokenizer", tok)  # Gemma returns a processor
 
     # Fixed-length rows so tokens per step are exact.
     ids = text_tok(PARAGRAPH * 400, add_special_tokens=False)["input_ids"][: p["seq"]]

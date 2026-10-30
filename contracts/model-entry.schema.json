@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agritune.local/contracts/model-entry.schema.json",
+  "title": "ModelEntry",
+  "description": "A model in the Model Registry (artifacts/registry/models/<id>.json). Train registers fine-tuned runs; Eval appends evaluation summaries. The source of truth is services/registry/src/agritune_registry/store.py.",
+  "type": "object",
+  "required": ["id", "name", "kind"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$", "examples": ["gemma-4-e4b", "run-20261025-210000-gemma4-e4b-qlora"] },
+    "name": { "type": "string" },
+    "kind": { "enum": ["hf_base", "hf_adapter", "ollama", "api"] },
+    "provider": { "enum": ["local", "ollama", "anthropic", "google"] },
+    "hf_id": { "type": ["string", "null"], "description": "hf_base: the checkpoint; hf_adapter: the base checkpoint it was trained on." },
+    "adapter_uri": { "type": ["string", "null"], "description": "hf_adapter: artifact path of the LoRA adapter." },
+    "ollama_tag": { "type": ["string", "null"], "description": "kind ollama, or an hf model exported to Ollama (then usable in the playground)." },
+    "api_model": { "type": ["string", "null"], "description": "kind api: the provider's model id." },
+    "chat_template": { "type": ["string", "null"] },
+    "train_preset": { "type": ["string", "null"], "description": "Set when the Train service can fine-tune this model." },
+    "parent": { "type": ["string", "null"], "description": "Registry id of the model a fine-tune started from." },
+    "lineage": { "type": "object", "description": "dataset, task, run_id, preset, base_model, mlflow_run_id" },
+    "paid": { "type": "boolean" },
+    "options": { "type": "object", "description": "Provider request options, e.g. {\"effort\": \"low\"} for Claude." },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "notes": { "type": "string" },
+    "evaluations": {
+      "type": "array",
+      "items": { "type": "object", "required": ["eval_id", "dataset"],
+                 "properties": { "eval_id": { "type": "string" }, "dataset": { "type": "string" }, "task": { "type": "string" },
+                                 "split": { "type": "string" }, "n": { "type": "integer" }, "metrics": { "type": "object" } } }
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" }
+  }
+}

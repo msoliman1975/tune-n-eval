@@ -1,0 +1,17 @@
+{
+  "id": "nl2sql-sqlite",
+  "version": "v1",
+  "name": "Natural language to SQL (SQLite)",
+  "description": "Write one SQLite query that answers a question about a database. The database schema (CREATE TABLE with keys, plus 3 example rows per table) is part of every prompt, at training, evaluation and runtime.",
+  "system": "You are an expert SQLite developer. Given a database schema and a question, write one SQLite query that answers the question. Use only tables and columns from the schema. Reply with the SQL query only, no explanation.",
+  "user_template": "Database schema:\n{schema}\n\nQuestion: {question}",
+  "inputs": ["question", "db_id"],
+  "target": "sql",
+  "context": {"schema": {"type": "sqlite_schema", "db_field": "db_id", "sample_rows": 3, "max_value_chars": 40}},
+  "attachments": {"type": "sqlite_dbs", "layout": "{db_id}/{db_id}.sqlite", "key": "db_id"},
+  "decoding": {"max_new_tokens": 320},
+  "metrics": {
+    "available": ["sql_exec", "sql_exact_set", "sql_valid", "exact_match", "latency", "sql_failure_judge"],
+    "default": ["sql_exec", "sql_exact_set", "sql_valid", "latency"]
+  }
+}

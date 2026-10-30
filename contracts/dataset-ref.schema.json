@@ -2,27 +2,31 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://agritune.local/contracts/dataset-ref.schema.json",
   "title": "DatasetRef",
-  "description": "A frozen, versioned dataset that Train and Eval read. Written by the Data service.",
+  "description": "A frozen, versioned dataset that Train and Eval read. Written by the Data service (drafts.py for uploads, freeze.py for the mango pipeline).",
   "type": "object",
   "required": ["id", "version", "sha256", "splits", "split_by", "created_at"],
-  "additionalProperties": false,
   "properties": {
-    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$", "examples": ["mango-sft"] },
-    "version": { "type": "string", "pattern": "^v[0-9]+\\.[0-9]+$", "examples": ["v0.1"] },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$", "examples": ["spider", "mango-sft"] },
+    "version": { "type": "string", "pattern": "^v[0-9]+\\.[0-9]+$", "examples": ["v1.0"] },
+    "task": { "type": "string", "description": "Task spec (tasks/<ref>.json) that renders rows into prompts. Absent on mango-sft, which means mango-qa@v1.", "examples": ["nl2sql-sqlite@v1"] },
     "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Hash over the split files, in split-name order." },
     "splits": {
       "type": "object",
-      "description": "Split name to artifact path of a Parquet file of DatasetItem rows.",
-      "propertyNames": { "enum": ["train", "heldout", "heldout_unseen", "gold"] },
-      "additionalProperties": { "type": "string" },
-      "required": ["train"]
+      "description": "Split name to artifact path of a Parquet file. Uploaded datasets use train / validation / test; mango-sft uses train / heldout / heldout_unseen.",
+      "propertyNames": { "enum": ["train", "validation", "test", "heldout", "heldout_unseen", "gold"] },
+      "additionalProperties": { "type": "string" }
     },
     "counts": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
-    "split_by": {
-      "const": "fact+source_doc",
-      "description": "heldout asks about facts that train covers, in different words; heldout_unseen comes from source documents with no train items."
+    "split_by": { "type": "string", "description": "How splits were made, e.g. column:split+group:db_id, random, fact+source_doc (mango)." },
+    "fields": {
+      "type": "object", "description": "The task fields every row carries.",
+      "properties": { "inputs": { "type": "array", "items": { "type": "string" } }, "target": { "type": "string" }, "context": { "type": "array", "items": { "type": "string" } } }
     },
-    "source_docs": { "type": "string", "description": "Artifact path of the source manifest (Parquet)." },
+    "attachments": { "type": ["string", "null"], "description": "Artifact path of attached files, e.g. one SQLite database per db_id." },
+    "stats": { "type": "object", "properties": { "avg_chars": { "type": "object", "additionalProperties": { "type": "integer" } } } },
+    "validation": { "type": "object", "description": "Checks run at freeze: items checked, invalid, reasons." },
+    "source": { "type": "object", "description": "Upload provenance: draft id, file name, rows, edits." },
+    "source_docs": { "type": "string", "description": "Mango only: artifact path of the source manifest (Parquet)." },
     "created_at": { "type": "string", "format": "date-time" },
     "workspace_id": { "type": "string", "default": "default" }
   }
