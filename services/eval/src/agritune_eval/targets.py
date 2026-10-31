@@ -140,7 +140,8 @@ class HFTarget:
     def prompt(self, user: str) -> str:
         return self.render([{"role": "system", "content": PROMPTS["system"]}, {"role": "user", "content": user}])
 
-    def _generate(self, prompts: list[str], max_new_tokens: int, batch: int) -> list[Answer]:
+    def _generate(self, prompts: list[str], max_new_tokens: int, batch: int, progress=None) -> list[Answer]:
+        """`progress(n)` after each batch, n = answers done so far (long answers take minutes per batch)."""
         torch = self.torch
         order = sorted(range(len(prompts)), key=lambda i: len(prompts[i]))
         out: list[Answer | None] = [None] * len(prompts)
@@ -157,6 +158,8 @@ class HFTarget:
                 for k, (i, row) in enumerate(zip(idx, gen[:, enc["input_ids"].shape[1]:])):
                     n_out = int((row != self.tok.pad_token_id).sum())
                     out[i] = Answer(self.tok.decode(row, skip_special_tokens=True).strip(), per, int(n_in[k]), n_out)
+                if progress:
+                    progress(s + len(idx))
         return out  # type: ignore[return-value]
 
     def chat(self, conversations: list[list[dict]], max_new_tokens: int = 400, batch: int = 8,
@@ -165,9 +168,9 @@ class HFTarget:
         out: list[Answer] = []
         step = max(batch * 8, 1)
         for s in range(0, len(conversations), step):  # chunks, so progress can be reported
-            out += self._generate([self.render(m) for m in conversations[s:s + step]], max_new_tokens, batch)
-            if progress:
-                progress(len(out))
+            done = len(out)
+            out += self._generate([self.render(m) for m in conversations[s:s + step]], max_new_tokens, batch,
+                                  (lambda n, done=done: progress(done + n)) if progress else None)
         return out
 
     def generate(self, questions: list[str], max_new_tokens: int = 400, batch: int = 8) -> list[str]:
