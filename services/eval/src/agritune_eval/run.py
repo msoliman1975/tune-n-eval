@@ -40,7 +40,7 @@ from agritune_core.tasks import task_of
 from . import ARTIFACTS, REPO
 from .metrics import METRICS, preview, score_sql, score_text
 from .stats import mean_ci, paired_delta
-from .structured import score_structured
+from .structured import STRUCTURED, score_structured
 from .targets import Answer, Gen
 
 EVALS = ARTIFACTS / "eval"
@@ -262,7 +262,11 @@ def score_all(task, items: list[dict], models: list[dict], answers: dict, metric
                                         want, tables_json)
         else:
             scores = score_text(a.text, str(it[task.target]), want)
-            more, details = score_structured(task, a.text, it[task.target], want, m.get("prompt_tier"))
+            try:
+                more, details = score_structured(task, a.text, it[task.target], want, m.get("prompt_tier"))
+            except Exception as e:  # one odd answer must not fail the evaluation: it scores 0 where it could not be read
+                more = {k: 0.0 for k in want & STRUCTURED if METRICS[k].kind in ("rate", "score")}
+                details = {"scoring_error": f"{type(e).__name__}: {e}"[:300]}
             scores |= more
         if "latency" in want and not a.error:
             scores["latency"] = round(a.latency_s, 3)

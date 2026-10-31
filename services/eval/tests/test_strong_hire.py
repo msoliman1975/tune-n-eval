@@ -212,3 +212,18 @@ def test_run_with_tiers_schema_and_ttft(monkeypatch):
     finally:
         shutil.rmtree(SCRATCH, ignore_errors=True)
         shutil.rmtree(out, ignore_errors=True)
+
+
+@pytest.mark.parametrize("ds", sorted(p.stem for p in DATA.glob("sh-*.jsonl")))
+def test_malformed_answers_score_without_errors(ds):
+    """Unconstrained models write any shape (lists of strings, numbers for objects, nulls): it scores, never raises."""
+    ref = rows(ds)[0]["reference"]
+    odd = ["", "null", "[]", '"text"', "42", "{}", '{"a": [1, "x", null]}',
+           json.dumps({k: v for k in ("per_question", "competency_scores", "value_scores", "requirements", "competencies",
+                                      "parts", "roles", "skills", "message", "action", "conduct", "matches", "looks_like")
+                       for v in [["ownership", 3, None, {"competency": ["x"], "score": "4", "quotes": "a b c d"}]]}),
+           json.dumps({"per_question": [{"question_ref": ["q1"], "scores": {"competency": "impact"}}],
+                       "requirements": [{"id": None, "rating": True, "evidence": 7}], "parts": [{"quotes": [1, None]}]})]
+    for text in odd:
+        scores, _ = score(f"{ds}@v1", text, ref)
+        assert all(isinstance(v, float) for v in scores.values()), (text, scores)

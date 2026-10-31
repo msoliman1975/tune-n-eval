@@ -78,6 +78,25 @@ def first(obj, path: str):
     return found[0] if found else None
 
 
+def dicts(value) -> list[dict]:
+    """The objects in a list; nothing for anything else. Unconstrained models write any shape."""
+    return [x for x in value if isinstance(x, dict)] if isinstance(value, list) else []
+
+
+def strs(value) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    return [x for x in value if isinstance(x, str)] if isinstance(value, list) else []
+
+
+def name(value) -> str | None:
+    return value if isinstance(value, str) else None
+
+
+def rating(value) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
 # ---------- text matching (strong-hire's normalize / grounding and quote checker) ----------
 
 _NON_WORD = re.compile(r"[^a-z0-9+#]+")
@@ -225,31 +244,32 @@ def kept_scores(card: dict, ref: dict) -> tuple[dict, dict, dict, dict, int, int
 
     def good(quotes) -> bool:
         nonlocal checked, valid
-        ok = [q for q in quotes or [] if quote_ok(q, sources)]
-        checked += len(quotes or [])
+        quotes = strs(quotes)
+        ok = [q for q in quotes if quote_ok(q, sources)]
+        checked += len(quotes)
         valid += len(ok)
         return bool(ok)
 
     per_q, per_v, overall, overall_v = {}, {}, {}, {}
-    for qs in card.get("per_question") or []:
-        ref_id = qs.get("question_ref")
+    for qs in dicts(card.get("per_question")):
+        ref_id = name(qs.get("question_ref"))
         if ref_id not in asked:
             continue
-        for s in qs.get("scores") or []:
-            key = (ref_id, s.get("competency"))
-            if key[1] in comps and key not in per_q and isinstance(s.get("score"), int) and good(s.get("quotes")):
+        for s in dicts(qs.get("scores")):
+            key = (ref_id, name(s.get("competency")))
+            if key[1] in comps and key not in per_q and rating(s.get("score")) is not None and good(s.get("quotes")):
                 per_q[key] = s["score"]
-        for s in qs.get("value_scores") or []:
-            key = (ref_id, s.get("value"))
-            if key[1] in vals and key not in per_v and isinstance(s.get("score"), int) and good(s.get("quotes")):
+        for s in dicts(qs.get("value_scores")):
+            key = (ref_id, name(s.get("value")))
+            if key[1] in vals and key not in per_v and rating(s.get("score")) is not None and good(s.get("quotes")):
                 per_v[key] = s["score"]
-    for s in card.get("competency_scores") or []:
-        c = s.get("competency")
-        if c in comps and c not in overall and isinstance(s.get("score"), int) and good(s.get("quotes")):
+    for s in dicts(card.get("competency_scores")):
+        c = name(s.get("competency"))
+        if c in comps and c not in overall and rating(s.get("score")) is not None and good(s.get("quotes")):
             overall[c] = s["score"]
-    for s in card.get("value_scores") or []:
-        v = s.get("value")
-        if v in vals and v not in overall_v and isinstance(s.get("score"), int) and good(s.get("quotes")):
+    for s in dicts(card.get("value_scores")):
+        v = name(s.get("value"))
+        if v in vals and v not in overall_v and rating(s.get("score")) is not None and good(s.get("quotes")):
             overall_v[v] = s["score"]
     return per_q, per_v, overall, overall_v, checked, valid
 
@@ -302,14 +322,14 @@ def gap_score(assessment: dict, ref: dict) -> tuple[int, dict]:
     """The match score the product computes from this assessment."""
     resume = gap_words(ref["resume_text"])
 
-    def checked(rating, evidence) -> int:
-        rating = max(0, min(3, rating if isinstance(rating, int) else 0))
-        found = gap_words(evidence or "")
+    def checked(value, evidence) -> int:
+        r = max(0, min(3, rating(value) or 0))
+        found = gap_words(evidence if isinstance(evidence, str) else "")
         ok = bool(found) and len(found & resume) / len(found) >= EVIDENCE_MATCH
-        return 1 if rating > 1 and not ok else rating
+        return 1 if r > 1 and not ok else r
 
     by_id = {}
-    for r in assessment.get("requirements") or []:
+    for r in dicts(assessment.get("requirements")):
         by_id.setdefault(str(r.get("id", "")).strip().lower(), r)
     reqs, unrated = [], 0
     for req in ref["requirements"]:
@@ -319,10 +339,10 @@ def gap_score(assessment: dict, ref: dict) -> tuple[int, dict]:
         reqs.append((POINTS[checked(r.get("rating"), r.get("evidence")) if r else 0], REQUIREMENT_WEIGHTS[req["kind"]]))
     weights = ref.get("competency_weights") or {}
     comps = {}
-    for c in assessment.get("competencies") or []:
-        if c.get("competency") in ref["competencies"] and c["competency"] not in comps:
-            rating = c.get("rating") if isinstance(c.get("rating"), int) else 0
-            comps[c["competency"]] = POINTS[max(0, min(3, rating))]
+    for c in dicts(assessment.get("competencies")):
+        comp_name = name(c.get("competency"))
+        if comp_name in ref["competencies"] and comp_name not in comps:
+            comps[comp_name] = POINTS[max(0, min(3, rating(c.get("rating")) or 0))]
 
     def mean(pairs):
         w = sum(p[1] for p in pairs)
