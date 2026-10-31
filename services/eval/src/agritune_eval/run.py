@@ -40,7 +40,7 @@ from agritune_core.tasks import task_of
 from . import ARTIFACTS, REPO
 from .metrics import METRICS, preview, score_sql, score_text
 from .stats import mean_ci, paired_delta
-from .structured import STRUCTURED, score_structured
+from .structured import STRUCTURED, baselines, score_structured, weighted_kappa
 from .targets import Answer, Gen
 
 EVALS = ARTIFACTS / "eval"
@@ -346,8 +346,21 @@ def judge_all(task, items, models, answers, res, metrics, judge_model, ev: Event
 
 # ---------- report ----------
 
+def kappa_ci(pairs: list[list[int]], seed: int = 0) -> tuple[float | None, list[float | None]]:
+    """Weighted kappa over (model, human, categories) pairs, with a 95% bootstrap interval over the pairs."""
+    k = pairs[0][2] if pairs else 2
+    value = weighted_kappa([(a, b) for a, b, _ in pairs], k)
+    if value is None:
+        return None, [None, None]
+    rng = np.random.default_rng(seed)
+    boots = [weighted_kappa([(pairs[i][0], pairs[i][1]) for i in rng.integers(0, len(pairs), len(pairs))], k)
+             for _ in range(1000)]
+    boots = [b for b in boots if b is not None]
+    return value, ([float(np.percentile(boots, 2.5)), float(np.percentile(boots, 97.5))] if boots else [None, None])
+
+
 def aggregate(items, models, res, metrics):
-    numeric = [m for m in metrics if METRICS[m].kind != "category"]
+    numeric = [m for m in metrics if METRICS[m].kind not in ("category", "kappa")]
     slices = [("all", "all")] + sorted({(k, v) for it in items for k, v in it["_slices"].items()})
     in_slice = lambda it, s: s[0] == "all" or it["_slices"].get(s[0]) == s[1]  # noqa: E731
     scores, comps, breakdowns = [], [], {}
@@ -382,6 +395,17 @@ def aggregate(items, models, res, metrics):
                 comps.append({"a": a, "b": b, "metric": metric, "slice": {"key": s[0], "value": s[1]},
                               "delta": round(d["delta"], 4), "ci95": [round(x, 4) for x in d["ci95"]],
                               "verdict": verdict, "n": len(common)})
+    for metric in [m for m in metrics if METRICS[m].kind == "kappa"]:  # over the item set, from pairs
+        for s in slices:
+            for m in models:
+                pairs = [p for it in items if in_slice(it, s)
+                         for p in (res[(m["id"], it["id"])]["details"].get("pairs") or {}).get(metric, [])]
+                value, ci = kappa_ci(pairs)
+                if value is None:
+                    continue
+                scores.append({"model": m["id"], "metric": metric, "slice": {"key": s[0], "value": s[1]},
+                               "value": round(value, 4), "ci95": [None if x is None else round(x, 4) for x in ci],
+                               "n": len(pairs)})
     for metric in [m for m in metrics if METRICS[m].kind == "category"]:
         breakdowns[metric] = {m["id"]: dict(Counter(res[(m["id"], it["id"])]["scores"][metric] for it in items
                                                     if metric in res[(m["id"], it["id"])]["scores"]).most_common())
@@ -483,7 +507,8 @@ def main() -> None:
                                "json_schema": bool(gen.json_schema), "stream": gen.stream,
                                "prompt_tiers": sorted(tier_convs)},
                   "scores": scores, "comparisons": comps, "breakdowns": breakdowns, "usage": usage(models, answers),
-                  "judge": judge, "created_at": now(), "workspace_id": "default"}
+                  "judge": judge, "baselines": baselines(task, [it[task.target] for it in items], set(metrics)),
+                  "created_at": now(), "workspace_id": "default"}
         (out / "report.json").write_text(json.dumps(report, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
         post_registry(report)
         head = [f"{s['model']}: {s['metric']} {s['value']:.3f}" for s in scores if s["slice"]["key"] == "all"]

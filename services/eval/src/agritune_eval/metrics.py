@@ -5,7 +5,9 @@ some. Each metric scores one answer at a time; aggregation, intervals and compar
 
 Kinds: rate (0/1 per item, reported as %), score (0-1), scale (1-5), seconds (lower is better),
 category (a label per failed item, reported as counts), value (a number to read per slice, e.g. a
-0-100 match score; no model is "better" for a higher value, so pairs are not compared).
+0-100 match score; no model is "better" for a higher value, so pairs are not compared), error (a mean
+distance from the reference, lower is better), kappa (agreement beyond chance over the whole item set,
+-1 to 1, with a bootstrap interval; computed from pairs, not averaged per item).
 
 The structured and Strong Hire metrics are scored in structured.py.
 """
@@ -41,7 +43,7 @@ class Metric:
     @property
     def compare(self) -> bool:
         """Whether a model pair is compared on this metric (not for counts or neutral values)."""
-        return self.kind not in ("category", "value")
+        return self.kind not in ("category", "value", "kappa")
 
 
 METRICS = {m.id: m for m in [
@@ -78,14 +80,33 @@ METRICS = {m.id: m for m in [
     Metric("quotes_verbatim", "Quotes are the candidate's words", "structured", "score",
            "Share of the answer's quotes found word for word in what the candidate said (case and punctuation "
            "ignored; '...' may skip words; at least 3 words)."),
-    Metric("rubric_within_one", "Rubric scores within one point", "product", "score",
-           "Per question and competency the human scored: the model's 1-4 score is within one point. Scores whose "
-           "quotes are not the candidate's words are dropped first, as Strong Hire does; a missing score is a miss."),
+    Metric("scorecard_usable", "Usable scorecards", "product", "rate",
+           "Strong Hire could compute a hire signal: the scorecard matches the schema and keeps at least one score "
+           "whose quotes are the candidate's words."),
+    Metric("hire_signal_kappa", "Hire signal agreement (kappa)", "product", "kappa",
+           "Quadratic weighted kappa between the hire signal Strong Hire computes from the model's scores and the "
+           "human signal, over the usable scorecards: 1 = perfect, 0 = no better than guessing. The headline for "
+           "the scorer; within-one-band is easy to reach by guessing."),
+    Metric("hire_signal_error", "Hire signal error (bands)", "product", "error",
+           "Mean distance in bands (0-4) between the computed and the human hire signal, usable scorecards only.",
+           higher_is_better=False),
+    Metric("hire_signal_bias", "Hire signal bias (bands)", "product", "value",
+           "Mean signed distance in bands: positive = more generous than the human, negative = harsher."),
     Metric("hire_signal_within_one", "Hire signal within one band", "product", "rate",
-           "The hire signal Strong Hire computes from the model's scores is within one band of the human signal "
-           "(spec bar: 85%)."),
+           "The computed hire signal is within one band of the human signal (spec bar: 85%); an unusable scorecard "
+           "is a miss. Compare with the guessing baseline: on 5 bands, one constant answer often reaches 60-70%."),
     Metric("hire_signal_exact", "Hire signal exact", "product", "rate",
-           "The computed hire signal equals the human signal."),
+           "The computed hire signal equals the human signal; an unusable scorecard is a miss."),
+    Metric("competency_kappa", "Competency agreement (kappa)", "product", "kappa",
+           "Quadratic weighted kappa between the model's and the human's score per competency (mean of the "
+           "per-question scores, or the model's overall score when it gave only that), on the 1-4 points."),
+    Metric("competency_error", "Competency error (points)", "product", "error",
+           "Mean distance in rubric points between the model's and the human's score per competency, for the "
+           "competencies both scored.", higher_is_better=False),
+    Metric("rubric_within_one", "Per-question scores within one point", "product", "score",
+           "Per question and competency the human scored: the model's per-question score is within one point. A "
+           "missing per-question score is a miss, so a model that gives only overall scores gets 0 here (use the "
+           "competency metrics for those)."),
     Metric("gap_fit", "Gap analysis fit", "product", "rate",
            "The match score Strong Hire computes from the model's ratings falls in the band the pair expects "
            "(a matching resume high, a resume for another job low)."),

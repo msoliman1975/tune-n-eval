@@ -68,9 +68,11 @@ def test_labels_and_one_question():
     assert s == {"json_valid": 1.0, "label_acc": 1.0, "field_match": 1.0}
     s, _ = score("sh-input-check@v1", {"matches": True, "looks_like": "resume", "reason": ""}, r["reference"])
     assert s["label_acc"] == 0.0
-    p = rows("sh-probe")[0]
-    s, d = score("sh-probe@v1", {"action": "PROBE" if p["expected"] == "probe" else "move_on", "missing": []}, p["reference"])
-    assert s["label_acc"] == 1.0 and s["json_valid"] == (1.0 if p["expected"] == "move_on" else 0.0)  # enum is lower case
+    p = next(x for x in rows("sh-probe") if x["expected"] == "probe")
+    s, _ = score("sh-probe@v1", {"action": "probe", "missing": []}, p["reference"])
+    assert s == {"json_valid": 1.0, "label_acc": 1.0}
+    s, d = score("sh-probe@v1", {"action": "PROBE", "missing": []}, p["reference"])  # the enum is lower case
+    assert s == {"json_valid": 0.0, "label_acc": 0.0} and d["unusable"] == "does not match the schema"
     c = rows("sh-coach-turn")[1]
     said = json.loads(c["reference"])["source_texts"][-1]
     reply = {"message": "Good. What did you do yourself? And what changed?", "missing": [], "skills": [],
@@ -132,7 +134,8 @@ def test_gap_score_follows_the_evidence_rule():
                                          for q in ref["requirements"]]}
     assert gap_score(unbacked, ref)[0] == round(0.7 * 35 + 0.3 * 100)  # ratings capped at 1 without evidence
     s, d = score("sh-gap@v1", full | {"strengths": [], "gaps": [], "probe_areas": [],
-                                      "session_plan": [{"interview_type": "behavioral", "reason": "r"}]}, r["reference"])
+                                      "session_plan": [{"interview_type": "behavioral", "reason": "r", "priority": 1,
+                                                        "focus_topics": ["ownership"]}]}, r["reference"])
     assert s["gap_match_score"] == 100.0 and s["gap_fit"] == 1.0
     assert score("sh-gap@v1", {"requirements": []}, r["reference"])[0]["gap_fit"] == 0.0  # no ratings: score 0
     adjacent = next(x for x in rows("sh-gap") if x["fit"] == "adjacent")
@@ -227,3 +230,101 @@ def test_malformed_answers_score_without_errors(ds):
     for text in odd:
         scores, _ = score(f"{ds}@v1", text, ref)
         assert all(isinstance(v, float) for v in scores.values()), (text, scores)
+
+
+
+def test_schema_breaking_answers_count_as_no_answer_for_every_model():
+    """Strong Hire rejects an answer that breaks its contract. The Claude request cannot carry every schema
+    limit (e.g. non-empty strings), so a Claude answer can break it where an Ollama answer cannot; both are
+    scored by the full schema, so neither gains from it."""
+    r = rows("sh-score")[0]
+    ref = json.loads(r["reference"])
+    good = gold_card(ref, " ".join(max(ref["source_texts"], key=len).split()[:6]))
+    s, _ = score("sh-score@v1", good, r["reference"])
+    assert s["scorecard_usable"] == 1.0 and s["json_valid"] == 1.0
+    blank_value = good | {"value_scores": [{"value": "", "score": 3, "justification": "", "quotes": []}]}
+    s, d = score("sh-score@v1", blank_value, r["reference"])
+    assert s["json_valid"] == 0.0 and s["scorecard_usable"] == 0.0 and s["hire_signal_within_one"] == 0.0
+    assert "hire_signal_error" not in s and d["unusable"] == "does not match the schema"
+    g = next(x for x in rows("sh-gap") if x["fit"] == "mismatch")
+    assert score("sh-gap@v1", "not json", g["reference"])[0] == {"json_valid": 0.0, "gap_fit": 0.0}  # not a pass
+    c = rows("sh-coach-turn")[0]
+    assert score("sh-coach-turn@v1", {"message": "Hi"}, c["reference"])[0]["one_question"] == 1.0  # valid, no question
+    assert score("sh-coach-turn@v1", {"message": ""}, c["reference"])[0]["one_question"] == 0.0  # rejected: says nothing
+
+
+def test_competency_scores_compare_overall_only_scorecards():
+    """A model may give only overall competency scores; the competency metrics still compare them."""
+    r = rows("sh-score")[0]
+    ref = json.loads(r["reference"])
+    quote = " ".join(max(ref["source_texts"], key=len).split()[:6])
+    human = defaultdict(list)
+    for g in ref["gold_scores"]:
+        human[g["competency"]].append(g["score"])
+    overall = [{"competency": c, "score": round(sum(v) / len(v)), "justification": "j", "quotes": [quote]}
+               for c, v in human.items()]
+    card = {"hire_signal": "Hire", "rationale": "r", "scorer_model": "m", "rubric_version": "v",
+            "competency_scores": overall, "per_question": []}
+    s, d = score("sh-score@v1", card, r["reference"])
+    assert s["rubric_within_one"] == 0.0 and s["competency_error"] < 0.5 and s["scorecard_usable"] == 1.0
+    assert len(d["pairs"]["competency_kappa"]) == len(human)
+
+
+def test_baselines_show_what_guessing_scores():
+    from agritune_eval.structured import baselines
+
+    b = baselines(load_task("sh-score@v1"), [r["reference"] for r in rows("sh-score")],
+                  {"hire_signal_within_one", "hire_signal_kappa", "rubric_within_one", "competency_error"})
+    assert b["hire_signal_within_one"] == {"answer": "always Lean No Hire", "value": pytest.approx(20 / 30, abs=1e-4)}
+    assert b["rubric_within_one"]["answer"] == "always 3" and b["rubric_within_one"]["value"] > 0.9
+    assert b["hire_signal_kappa"]["value"] == 0.0
+    probe = baselines(load_task("sh-probe@v1"), [r["reference"] for r in rows("sh-probe")], {"label_acc"})
+    assert probe["label_acc"]["answer"] == "always move_on" and probe["label_acc"]["value"] == pytest.approx(110 / 182, abs=1e-4)
+
+
+def test_kappa_separates_a_judge_from_a_guesser(monkeypatch):
+    """Over the full scorer set: a scorer that writes the human scores against one that scores everything 3.
+    Within one point barely separates them; kappa does, and the report carries the guessing baselines."""
+    src = rows("sh-score")
+    d = SCRATCH / "sh-score" / "v1.0"
+    d.mkdir(parents=True, exist_ok=True)
+    pq.write_table(pa.Table.from_pylist([{"id": r["id"], "split": "test", "title": r["title"], "messages": r["messages"],
+                                          "reference": r["reference"], "meta": "{}", "edited": False} for r in src]),
+                   d / "test.parquet")
+    (d / "dataset_ref.json").write_text(json.dumps({"id": "sh-score", "version": "v1.0", "task": "sh-score@v1",
+                                                    "splits": {"test": str((d / "test.parquet").relative_to(REPO))}}))
+
+    def card(r, lazy):
+        ref = json.loads(r["reference"])
+        c = gold_card(ref, " ".join(max(ref["source_texts"], key=len).split()[:6]))
+        for q in c["per_question"] if lazy else []:
+            for x in q["scores"]:
+                x["score"] = 3
+        return json.dumps(c)
+
+    monkeypatch.setattr(run, "generate_all", lambda models, convs, *a, **k: {
+        "judge": [Answer(card(r, False), 1.0, 10, 10) for r in src], "lazy": [Answer(card(r, True), 1.0, 10, 10) for r in src]})
+    monkeypatch.setattr(run, "post_registry", lambda report: None)
+    out = EVALS / EVAL_ID
+    out.mkdir(parents=True, exist_ok=True)
+    metrics = load_task("sh-score@v1").metrics["available"]
+    models = [{"id": m, "kind": "ollama", "ollama_tag": m, "name": m, "paid": False} for m in ("judge", "lazy")]
+    (out / "spec.json").write_text(json.dumps({"id": EVAL_ID, "dataset": str(d.relative_to(REPO)), "splits": ["test"],
+                                               "models": models, "metrics": metrics}))
+    monkeypatch.setattr(sys, "argv", ["run", "--spec", str(out / "spec.json")])
+    try:
+        run.main()
+        rep = json.loads((out / "report.json").read_text())
+        head = {(s["model"], s["metric"]): s for s in rep["scores"] if s["slice"]["key"] == "all"}
+        assert head[("lazy", "rubric_within_one")]["value"] > 0.9  # guessing looks fine here...
+        assert head[("judge", "hire_signal_kappa")]["value"] > 0.9  # ...but not on agreement beyond chance
+        assert head[("lazy", "hire_signal_kappa")]["value"] < 0.5
+        assert head[("judge", "hire_signal_kappa")]["ci95"][0] is not None and head[("judge", "hire_signal_kappa")]["n"] == 30
+        assert head[("lazy", "hire_signal_bias")]["value"] > 0.5  # "3" everywhere is too generous on this set
+        assert not any(c["metric"] in ("hire_signal_kappa", "hire_signal_bias") for c in rep["comparisons"])
+        err = next(c for c in rep["comparisons"] if c["metric"] == "hire_signal_error" and c["slice"]["key"] == "all")
+        assert err["verdict"] == "a_better"  # the judge, lower error
+        assert rep["baselines"]["hire_signal_within_one"]["answer"] == "always Lean No Hire"
+    finally:
+        shutil.rmtree(SCRATCH, ignore_errors=True)
+        shutil.rmtree(out, ignore_errors=True)

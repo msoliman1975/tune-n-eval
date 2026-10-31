@@ -2,7 +2,7 @@
   "id": "sh-score",
   "version": "v1",
   "name": "Strong Hire: interview scorer (FB-1, FB-2)",
-  "description": "Score a finished interview transcript into Strong Hire's Scorecard. As in the product, scores whose quotes are not the candidate's words are dropped, and the hire signal is computed in code from the remaining scores; both are compared with the human gold set. One call per transcript: the product's re-ask for lost quotes is not simulated. Prompts are Strong Hire's own (built by scripts/build_strong_hire.py); a model with prompt_tier small gets the small-model variant where the row has one.",
+  "description": "Score a finished interview transcript into Strong Hire's Scorecard. As in the product, a scorecard that does not match the schema is rejected, scores whose quotes are not the candidate's words are dropped, and the hire signal is computed in code from the remaining scores; it is compared with the human gold set. Read hire_signal_kappa first: within-one-band is easy to reach by guessing (the report shows the guessing baselines). One call per transcript: the product's re-ask for lost quotes and its retry after a rejected scorecard are not simulated.",
   "user_template": "",
   "inputs": [
     "title",
@@ -29,17 +29,28 @@
   "metrics": {
     "available": [
       "json_valid",
+      "scorecard_usable",
+      "hire_signal_kappa",
+      "hire_signal_error",
+      "hire_signal_bias",
       "hire_signal_within_one",
       "hire_signal_exact",
+      "competency_kappa",
+      "competency_error",
       "rubric_within_one",
       "quotes_verbatim",
       "latency"
     ],
     "default": [
       "json_valid",
+      "scorecard_usable",
+      "hire_signal_kappa",
+      "hire_signal_error",
+      "hire_signal_bias",
       "hire_signal_within_one",
       "hire_signal_exact",
-      "rubric_within_one",
+      "competency_kappa",
+      "competency_error",
       "quotes_verbatim",
       "latency"
     ]

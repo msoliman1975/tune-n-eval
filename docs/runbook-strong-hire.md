@@ -13,7 +13,7 @@ to speech are out of scope.
 | `sh-extract-resume` | CV (.txt, .pdf, .docx text) to Resume JSON (extractor) | 15 | hand-checked JSON | `field_match` | `json_valid` |
 | `sh-input-check` | Is this really a job description / a CV? (extractor) | 94 | by construction | `label_acc` (accept or refuse) | `field_match` (document kind) |
 | `sh-gap` | Rate a CV against a posting (planner) | 151 | job family and seniority of each pair | `gap_fit` | `gap_match_score` per fit slice |
-| `sh-score` | Score a finished interview (scorer) | 30 | human gold set | `hire_signal_within_one` (spec bar 85%) | `hire_signal_exact`, `rubric_within_one`, `quotes_verbatim` |
+| `sh-score` | Score a finished interview (scorer) | 30 | human gold set | `hire_signal_kappa` | `scorecard_usable`, `hire_signal_error`, `hire_signal_bias`, `hire_signal_within_one` (spec bar 85%), `competency_kappa`, `competency_error`, `quotes_verbatim` |
 | `sh-probe` | Follow up or move on after an answer (interviewer) | 182 | vague-answer marks in the scripted transcripts | `label_acc` | per `expected` slice |
 | `sh-answer-check` | Does a turn belong in the interview? (interviewer) | 38 | hand-written, labeled | `label_acc` | per `expected` slice |
 | `sh-interviewer-turn` | The interviewer's next spoken line (interviewer) | 152 | product rules | `ttft` (time to first word) | `one_question`, `word_limit` |
@@ -31,10 +31,20 @@ How the metrics work (definitions in the Studio's metric picker, code in
   Hire's own result of 26/30 exact and 30/30 within one band from the human scores). Scores backed by
   quotes the candidate never said are dropped first, and ratings of 2-3 without CV evidence are capped,
   exactly as the product does.
-- **JSON.** `json_valid` checks the answer against the product's contract (`tasks/schemas/strong-hire/`).
-  Ollama and Claude models are constrained to the schema, as Strong Hire constrains them; local
-  transformers models (the `hf_base` entries) are not, so they fail more often. Strong Hire retries
-  once on a schema error; the evaluation measures the first attempt.
+- **JSON and the schema rule.** `json_valid` checks the answer against the product's contract
+  (`tasks/schemas/strong-hire/`). An answer that breaks it counts as no answer on every other metric,
+  because Strong Hire rejects it. This keeps models comparable: Ollama enforces the whole schema while
+  decoding, but the Claude API does not accept limits such as "non-empty" or "1 to 4", so a Claude answer
+  can break them; local transformers models (`hf_base`) get no constraint at all. Strong Hire retries
+  once after a rejection; the evaluation measures the first attempt.
+- **Guessing.** Some metrics are easy to reach without judging: on the 30 scorer transcripts, always
+  answering "Lean No Hire" is within one band 67% of the time, and scoring every rubric item 3 is within
+  one point 93% of the time. The report lists these baselines under the scorecard. For the scorer, read
+  the kappa metrics first (agreement beyond chance, 1 perfect, 0 guessing), then the error and bias.
+- **Per-question vs competency scores.** Strong Hire's scorer prompt asks for per-question scores, but
+  its Scorecard contract does not require them, so models often give only overall competency scores.
+  `rubric_within_one` needs per-question scores; `competency_kappa` and `competency_error` compare
+  either kind.
 - **Gap bands.** `gap_fit` expects 60-100 for a matching pair (same job family, seniority within one
   level) and 0-40 for an unrelated family. Adjacent families (SWE and data/ML, PM and TPM, ...) and big
   seniority gaps have no band; read `gap_match_score` by the `fit` slice: matches should sit well above

@@ -71,13 +71,13 @@ export type ModelEntry = {
 };
 
 // Eval
-export type MetricInfo = { id: string; name: string; approach: string; kind: "rate" | "score" | "scale" | "seconds" | "category" | "value"; description: string; higher_is_better: boolean; judge: boolean; default?: boolean };
+export type MetricInfo = { id: string; name: string; approach: string; kind: "rate" | "score" | "scale" | "seconds" | "category" | "value" | "error" | "kappa"; description: string; higher_is_better: boolean; judge: boolean; default?: boolean };
 export type Slice = { key: string; value: string };
 export type Score = { model: string; metric: string; slice: Slice; value: number; ci95: [number, number]; n: number; p50?: number; p90?: number };
 export type Comparison = { a: string; b: string; metric: string; slice: Slice; delta: number; ci95: [number, number]; verdict: string; n: number };
 export type EvalReport = {
   id: string; status: string; version: 2; task: string; dataset: string; dataset_path: string; splits: string[]; n_items: number; limit: number; seed: number;
-  models: ModelEntry[]; metrics: string[]; metric_info: Record<string, MetricInfo>; scores: Score[]; comparisons: Comparison[];
+  models: ModelEntry[]; metrics: string[]; metric_info: Record<string, MetricInfo>; scores: Score[]; comparisons: Comparison[]; baselines?: Record<string, { answer: string; value: number }>;
   breakdowns: Record<string, Record<string, Record<string, number>>>;
   usage: Record<string, { input_tokens: number; output_tokens: number; errors: number; usd: number | null }>;
   judge: { model?: string; rubric?: string }; created_at: string;

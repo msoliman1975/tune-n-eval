@@ -13,11 +13,22 @@ Generic metrics (any task):
 - quotes_verbatim: share of quotes (`scoring.quotes_path`) found word for word in one of
   `reference.source_texts` (case, punctuation and spacing ignored; "..." may skip words).
 
-Strong Hire formulas (ported from strong-hire, where code, not the model, turns ratings into results):
-- rubric_within_one: per (question, competency) the human scored, the model's 1-4 score is within
-  one point. Scores whose quotes are not the candidate's words are dropped first, as the product does.
-- hire_signal_within_one / hire_signal_exact: the hire signal computed from the model's scores
-  (weighted competency and value averages, band floors, hard rules) against the human signal.
+Strong Hire formulas (ported from strong-hire, where code, not the model, turns ratings into results).
+Scores whose quotes are not the candidate's words are dropped first, as the product does.
+- scorecard_usable: the product could compute a hire signal (valid scorecard, at least one kept score).
+- hire_signal_kappa: quadratic weighted kappa of the computed signal against the human signal over the
+  usable scorecards: agreement on the 5-band scale beyond what guessing gets (1 perfect, 0 chance).
+  hire_signal_error: mean distance in bands; hire_signal_bias: signed (+ = more generous than the human).
+- hire_signal_within_one / hire_signal_exact: per transcript, an unusable scorecard is a miss. Easy to
+  reach by guessing on 5 bands: read them next to the baselines in the report.
+- competency_kappa / competency_error: each competency's score (mean of its per-question scores, or the
+  overall score when the model gave only that) against the human's mean for it, on the rubric points.
+- rubric_within_one: per (question, competency) the human scored, the model's per-question score is
+  within one point; a missing per-question score is a miss.
+
+Schema rule: as in the product, an answer that does not match the task's schema is rejected, so it
+counts as no answer on every metric (it can still score json_valid 0). The product's retry after a
+rejection is not simulated.
 - gap_match_score: the GA-1 match score (0-100) computed from the model's requirement and competency
   ratings, with the evidence rule. gap_fit: the score falls in the band the pair's fit expects.
 
@@ -204,6 +215,21 @@ def count_words(text: str) -> int:
     return len(re.findall(r"\b[\w'-]+\b", text or ""))
 
 
+def weighted_kappa(pairs: list[tuple[int, int]], k: int) -> float | None:
+    """Quadratic weighted kappa of (model, human) labels on an ordered scale of k categories."""
+    if len(pairs) < 2:
+        return None
+    n = len(pairs)
+    rows, cols = [0] * k, [0] * k
+    for a, b in pairs:
+        rows[a] += 1
+        cols[b] += 1
+    w = lambda i, j: (i - j) ** 2 / (k - 1) ** 2  # noqa: E731
+    observed = sum(w(a, b) for a, b in pairs) / n
+    expected = sum(w(i, j) * rows[i] * cols[j] for i in range(k) for j in range(k)) / (n * n)
+    return 1 - observed / expected if expected else None
+
+
 # ---------- Strong Hire: hire signal (strong_worker.scoring.signal) ----------
 
 SIGNALS = ["No Hire", "Lean No Hire", "Lean Hire", "Hire", "Strong Hire"]  # rank order, worst first
@@ -285,24 +311,44 @@ def averages(per: dict, overall: dict) -> dict[str, float]:
     return out
 
 
-def score_card(card: dict, ref: dict) -> tuple[dict, dict]:
+def gold_competencies(ref: dict) -> dict[str, float]:
+    by = defaultdict(list)
+    for g in ref["gold_scores"]:
+        by[g["competency"]].append(g["score"])
+    return {c: sum(v) / len(v) for c, v in by.items()}
+
+
+def score_card(card: dict, ref: dict) -> tuple[dict, dict, dict]:
+    """(scores, details, kappa pairs) for one scorecard."""
     per_q, per_v, overall, overall_v, checked, valid = kept_scores(card, ref)
     gold = [(g["question"], g["competency"], g["score"]) for g in ref["gold_scores"]]
     hits = [abs(per_q[(q, c)] - s) <= 1 if (q, c) in per_q else False for q, c, s in gold]
     scores = {"rubric_within_one": sum(hits) / len(hits) if hits else 0.0}
     comp_avgs = averages(per_q, overall)
-    details = {"kept_scores": len(per_q), "quotes_checked": checked, "quotes_valid": valid,
-               "competency_averages": {k: round(v, 2) for k, v in comp_avgs.items()}}
+    gold_comp = gold_competencies(ref)
+    both = [c for c in gold_comp if c in comp_avgs]
+    pairs = {"competency_kappa": [[rubric_point(comp_avgs[c]) - 1, rubric_point(gold_comp[c]) - 1, 4] for c in both]}
+    if both:
+        scores["competency_error"] = sum(abs(comp_avgs[c] - gold_comp[c]) for c in both) / len(both)
+    details = {"kept_scores": len(per_q), "kept_overall": len(overall), "quotes_checked": checked,
+               "quotes_valid": valid, "competency_averages": {k: round(v, 2) for k, v in comp_avgs.items()},
+               "human_competency_averages": {k: round(v, 2) for k, v in gold_comp.items()}}
     if comp_avgs:
         signal = hire_signal(comp_avgs, ref.get("weights") or {}, averages(per_v, overall_v),
                              ref.get("value_weights") or {}, ref.get("values_share", 0.0))
     else:
         signal = None  # the product refuses to score a transcript with no kept score
     details |= {"hire_signal": signal, "gold_signal": ref["gold_signal"]}
-    gap = abs(SIGNALS.index(signal) - SIGNALS.index(ref["gold_signal"])) if signal else 99
-    scores["hire_signal_within_one"] = float(gap <= 1)
-    scores["hire_signal_exact"] = float(gap == 0)
-    return scores, details
+    scores["scorecard_usable"] = float(signal is not None)
+    g = SIGNALS.index(ref["gold_signal"])
+    if signal is None:
+        scores["hire_signal_within_one"] = scores["hire_signal_exact"] = 0.0
+    else:
+        p = SIGNALS.index(signal)
+        scores |= {"hire_signal_within_one": float(abs(p - g) <= 1), "hire_signal_exact": float(p == g),
+                   "hire_signal_error": float(abs(p - g)), "hire_signal_bias": float(p - g)}
+        pairs["hire_signal_kappa"] = [[p, g, 5]]
+    return scores, details, pairs
 
 
 # ---------- Strong Hire: gap analysis match score (strong_worker.gap.scoring) ----------
@@ -361,13 +407,17 @@ def gap_score(assessment: dict, ref: dict) -> tuple[int, dict]:
 
 # ---------- entry point ----------
 
+SCORER = {"scorecard_usable", "hire_signal_kappa", "hire_signal_error", "hire_signal_bias", "hire_signal_within_one",
+          "hire_signal_exact", "competency_kappa", "competency_error", "rubric_within_one"}
 STRUCTURED = {"json_valid", "field_match", "label_acc", "one_question", "word_limit", "quotes_verbatim",
-              "rubric_within_one", "hire_signal_within_one", "hire_signal_exact", "gap_fit", "gap_match_score"}
+              "gap_fit", "gap_match_score", *SCORER}
+# Metrics computed over a whole set of items from per-item (model, human, categories) pairs, not averaged.
+SET_LEVEL = {"hire_signal_kappa", "competency_kappa"}
 
 
 def score_structured(task, text: str, reference, want: set[str], tier: str | None = None) -> tuple[dict, dict]:
     """(scores, details) for one answer by a model with this prompt tier. A metric that does not apply to
-    an item is left out."""
+    an item is left out. Set-level metrics (SET_LEVEL) leave their pairs in details["pairs"]."""
     want = want & STRUCTURED
     if not want:
         return {}, {}
@@ -380,15 +430,19 @@ def score_structured(task, text: str, reference, want: set[str], tier: str | Non
     scores, details = {}, {}
     if is_json:
         details["parsed"] = value is not None
-    if "json_valid" in want and is_json:
+    usable = True
+    if is_json:
         schema = task.json_schema
         errors = ["not JSON"] if value is None else (schema_errors(value, schema) if schema else [])
-        scores["json_valid"] = float(not errors)
+        if "json_valid" in want:
+            scores["json_valid"] = float(not errors)
         if errors:
             details["schema_errors"] = errors
-    obj = value if isinstance(value, dict) else {}
+            usable = False  # the product rejects it: it counts as no answer below, for every model alike
+            details["unusable"] = "does not match the schema" if value is not None else "not JSON"
+    obj = value if usable and isinstance(value, dict) else {}
     if "field_match" in want and cfg.get("fields") and isinstance(expected, dict):
-        if isinstance(value, dict):
+        if obj:
             scores["field_match"], details["fields"] = field_match(expected, obj, cfg["fields"])
         else:  # no answer object: a failed extraction, not a partial one (empty fields would match empty ones)
             scores["field_match"] = 0.0
@@ -397,35 +451,78 @@ def score_structured(task, text: str, reference, want: set[str], tier: str | Non
         scores["label_acc"] = float(all(same_label(got[p], first(expected, p)) for p in cfg["labels"]))
         details["labels"] = got
     spoken = (first(obj, cfg["text_path"]) if cfg.get("text_path") else text) or ""
-    if "one_question" in want:
-        scores["one_question"] = float(str(spoken).count("?") <= 1)
+    if "one_question" in want:  # an answer the product rejects says nothing, so it fails rather than passes
+        scores["one_question"] = float(usable and str(spoken).count("?") <= 1)
     limit = ref.get("max_words")
     if isinstance(limit, dict):  # the limit the product gives this model's tier
         limit = limit.get(tier or "default") or limit.get("default")
     if "word_limit" in want and limit:
         n = count_words(str(spoken))
-        scores["word_limit"] = float(n <= int(limit))
+        scores["word_limit"] = float(usable and n <= int(limit))
         details["words"] = n
     if "quotes_verbatim" in want and cfg.get("quotes_path") and ref.get("source_texts"):
         quotes = [q for q in pluck(obj, cfg["quotes_path"]) if isinstance(q, str)]
-        if quotes:
+        if not usable:
+            scores["quotes_verbatim"] = 0.0
+        elif quotes:
             sources = [quote_words(t) for t in ref["source_texts"]]
             bad = [q for q in quotes if not quote_ok(q, sources)]
             scores["quotes_verbatim"] = 1 - len(bad) / len(quotes)
             if bad:
                 details["unbacked_quotes"] = bad[:5]
-    if want & {"rubric_within_one", "hire_signal_within_one", "hire_signal_exact"} and "gold_scores" in ref:
-        s, d = score_card(obj, ref)
+    if want & SCORER and "gold_scores" in ref:
+        s, d, pairs = score_card(obj, ref)
         scores |= {k: v for k, v in s.items() if k in want}
         details["scorecard"] = d
+        details["pairs"] = {k: v for k, v in pairs.items() if k in want and v}
     if want & {"gap_fit", "gap_match_score"} and "requirements" in ref:
-        score, d = gap_score(obj, ref)
-        if value is None:
-            d["note"] = "no JSON: scored as no ratings"
-        if "gap_match_score" in want:
-            scores["gap_match_score"] = float(score)
         band = ref.get("band")
-        if "gap_fit" in want and band:
-            scores["gap_fit"] = float(band[0] <= score <= band[1])
-        details["gap"] = d | {"match_score": score, "band": band}
+        if not obj:  # rejected or not JSON: no match score (a 0 would "pass" a mismatch band)
+            if "gap_fit" in want and band:
+                scores["gap_fit"] = 0.0
+        else:
+            score, d = gap_score(obj, ref)
+            if "gap_match_score" in want:
+                scores["gap_match_score"] = float(score)
+            if "gap_fit" in want and band:
+                scores["gap_fit"] = float(band[0] <= score <= band[1])
+            details["gap"] = d | {"match_score": score, "band": band}
     return scores, details
+
+
+# ---------- guessing baselines ----------
+
+def baselines(task, references: list, want: set[str]) -> dict:
+    """What always giving the same answer would score on this item set, for the metrics where guessing
+    does well: the best constant answer per metric. Shown next to the models in the report."""
+    refs = [r if isinstance(r, dict) else parse_json(r) for r in references]
+    refs = [r for r in refs if isinstance(r, dict)]
+    out = {}
+    gold = [SIGNALS.index(r["gold_signal"]) for r in refs if "gold_signal" in r]
+    if gold:
+        def best(metric, f, higher=True):
+            vals = {SIGNALS[c]: sum(f(c, g) for g in gold) / len(gold) for c in range(5)}
+            answer = (max if higher else min)(vals, key=vals.get)
+            out[metric] = {"answer": f"always {answer}", "value": round(vals[answer], 4)}
+
+        best("hire_signal_within_one", lambda c, g: abs(c - g) <= 1)
+        best("hire_signal_exact", lambda c, g: c == g)
+        best("hire_signal_error", lambda c, g: abs(c - g), higher=False)
+        out["hire_signal_kappa"] = {"answer": "any constant answer", "value": 0.0}
+        comp = [v for r in refs if "gold_scores" in r for v in gold_competencies(r).values()]
+        pts = [g["score"] for r in refs if "gold_scores" in r for g in r["gold_scores"]]
+        if comp:
+            errs = {p: sum(abs(p - v) for v in comp) / len(comp) for p in (1, 2, 3, 4)}
+            p = min(errs, key=errs.get)
+            out["competency_error"] = {"answer": f"always {p}", "value": round(errs[p], 4)}
+            hits = {p: sum(abs(p - v) <= 1 for v in pts) / len(pts) for p in (1, 2, 3, 4)}
+            p = max(hits, key=hits.get)
+            out["rubric_within_one"] = {"answer": f"always {p}", "value": round(hits[p], 4)}
+            out["competency_kappa"] = {"answer": "any constant answer", "value": 0.0}
+    labels = task.scoring.get("labels") if task.scoring else None
+    if labels:
+        seen = [tuple(str(first(r.get("expected") or {}, p)) for p in labels) for r in refs]
+        if seen:
+            top = max(set(seen), key=seen.count)
+            out["label_acc"] = {"answer": f"always {', '.join(top)}", "value": round(seen.count(top) / len(seen), 4)}
+    return {k: v for k, v in out.items() if k in want}
