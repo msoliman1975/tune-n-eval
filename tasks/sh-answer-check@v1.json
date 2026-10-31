@@ -1,0 +1,40 @@
+{
+  "id": "sh-answer-check",
+  "version": "v1",
+  "name": "Strong Hire: answer conduct check (IV-12)",
+  "description": "Does a candidate turn belong in the interview (ok), go outside it (off_scope, including prompt injection), or abuse (inappropriate)? Hand-written turns placed after a real interviewer question. The product's rule is 'when in doubt, ok', so a false off_scope on a weak answer is the costly error: slice by expected. Prompts are Strong Hire's own (built by scripts/build_strong_hire.py); a model with prompt_tier small gets the small-model variant where the row has one.",
+  "user_template": "",
+  "inputs": [
+    "title",
+    "messages"
+  ],
+  "target": "reference",
+  "messages_field": "messages",
+  "output": {
+    "format": "json",
+    "schema": "schemas/strong-hire/answer_check.schema.json"
+  },
+  "decoding": {
+    "max_new_tokens": 256
+  },
+  "scoring": {
+    "labels": [
+      "conduct"
+    ]
+  },
+  "slices": [
+    "expected"
+  ],
+  "metrics": {
+    "available": [
+      "json_valid",
+      "label_acc",
+      "latency"
+    ],
+    "default": [
+      "json_valid",
+      "label_acc",
+      "latency"
+    ]
+  }
+}

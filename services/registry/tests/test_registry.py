@@ -27,6 +27,8 @@ def test_seed_sync_crud_and_evaluations():
     with TestClient(app) as c:  # the lifespan seeds and syncs
         models = {m["id"]: m for m in c.get("/models").json()}
         assert {"gemma-4-e4b", "gemma-4-12b", "claude-sonnet-5-5", "gemini-flash"} <= set(models)
+        assert models["qwen2.5-3b"]["prompt_tier"] == "small" and models["qwen2.5-7b"]["prompt_tier"] == "medium"
+        assert models["claude-haiku-5-5"]["paid"] and models["claude-sonnet-5-5"]["prompt_tier"] is None
         ft = models["run-1-gemma4-e4b-qlora"]
         assert ft["kind"] == "hf_adapter" and ft["parent"] == "gemma-4-e4b" and ft["lineage"]["run_id"] == ft["id"]
         assert not ft["servable"] and models["gemma-4-12b"]["servable"] and models["gemma-4-e4b"]["trainable"]
@@ -44,6 +46,8 @@ def test_seed_sync_crud_and_evaluations():
         assert c.post("/models", json={"id": "bad", "name": "x", "kind": "api", "provider": "anthropic"}).status_code == 422
         assert c.post("/models", json={"id": "Bad Id", "name": "x", "kind": "ollama", "ollama_tag": "a"}).status_code == 422
         assert c.patch("/models/llama-local", json={"notes": "hi"}).json()["notes"] == "hi"
+        assert c.patch("/models/llama-local", json={"prompt_tier": "small"}).json()["prompt_tier"] == "small"
+        assert c.patch("/models/llama-local", json={"prompt_tier": "tiny"}).status_code == 422
         assert c.patch("/models/llama-local", json={"ollama_tag": None}).status_code == 422
 
         s = {"eval_id": "eval-1", "dataset": "spider@v1.0", "metrics": {"sql_exec": 0.61}}

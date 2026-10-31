@@ -40,7 +40,8 @@ from agritune_core.tasks import task_of
 from . import ARTIFACTS, REPO
 from .metrics import METRICS, preview, score_sql, score_text
 from .stats import mean_ci, paired_delta
-from .targets import Answer
+from .structured import score_structured
+from .targets import Answer, Gen
 
 EVALS = ARTIFACTS / "eval"
 GEN_CACHE = EVALS / "gen_cache"
@@ -88,8 +89,8 @@ def slice_labels(task, row: dict, db, tables_json, sql: bool) -> dict:
         labels["lang"] = row["lang"]
     meta = row.get("meta")
     meta = json.loads(meta) if isinstance(meta, str) and meta else meta or {}
-    for k in SLICE_META:  # labels a dataset carries, e.g. BIRD's difficulty, Spider-DK's category
-        if meta.get(k):
+    for k in dict.fromkeys([*SLICE_META, *task.slices]):  # e.g. BIRD's difficulty, a task's expected label
+        if meta.get(k) not in (None, ""):
             labels[k] = str(meta[k])
     if sql:
         from .spider_match import hardness
@@ -118,8 +119,9 @@ class GenCache:
                 r = json.loads(line)
                 self.rows[r["key"]] = r["answer"]
 
-    def key(self, messages: list[dict], max_new_tokens: int) -> str:
-        return hashlib.sha256(json.dumps([self.fp, messages, max_new_tokens], ensure_ascii=False).encode()).hexdigest()
+    def key(self, messages: list[dict], max_new_tokens: int, gen: Gen = Gen()) -> str:
+        parts = [self.fp, messages, max_new_tokens, *gen.cache_extra()]
+        return hashlib.sha256(json.dumps(parts, ensure_ascii=False).encode()).hexdigest()
 
     def get(self, key: str) -> Answer | None:
         a = self.rows.get(key)
@@ -147,12 +149,17 @@ def ollama_unload_all() -> None:
         pass
 
 
-def generate_all(models: list[dict], convs: list[list[dict]], max_new: int, batch: int, ev: Events) -> dict[str, list]:
-    """Answers per model id. HF models sharing a base load it once; base answers use the adapter off."""
+def generate_all(models: list[dict], convs: list[list[dict]], max_new: int, batch: int, ev: Events,
+                 gen: Gen = Gen(), tier_convs: dict[str, list[list[dict]]] | None = None) -> dict[str, list]:
+    """Answers per model id. HF models sharing a base load it once; base answers use the adapter off.
+
+    `tier_convs`: the conversations for models whose registry entry has that `prompt_tier`, when the
+    dataset carries a variant for it (e.g. Strong Hire's prompts for small models); others get `convs`."""
     out: dict[str, list[Answer | None]] = {}
     todo: dict[str, list[int]] = {}
     caches = {m["id"]: GenCache(m) for m in models}
-    keys = {m["id"]: [caches[m["id"]].key(c, max_new) for c in convs] for m in models}
+    conv_of = {m["id"]: (tier_convs or {}).get(m.get("prompt_tier") or "", convs) for m in models}
+    keys = {m["id"]: [caches[m["id"]].key(c, max_new, gen) for c in conv_of[m["id"]]] for m in models}
     for m in models:
         out[m["id"]] = [caches[m["id"]].get(k) for k in keys[m["id"]]]
         todo[m["id"]] = [i for i, a in enumerate(out[m["id"]]) if a is None]
@@ -169,7 +176,8 @@ def generate_all(models: list[dict], convs: list[list[dict]], max_new: int, batc
         for s in range(0, total, CHUNK):  # cache each chunk, so an interrupted evaluation resumes from here
             part = idx[s:s + CHUNK]
             prog = lambda n, s=s: ev.emit("progress", stage="generate", model=model["id"], done=s + n, total=total)  # noqa: E731
-            answers = target.chat([convs[i] for i in part], max_new_tokens=max_new, progress=prog, **kw)
+            answers = target.chat([conv_of[model["id"]][i] for i in part], max_new_tokens=max_new, progress=prog,
+                                  gen=gen, **kw)
             for i, a in zip(part, answers):
                 out[model["id"]][i] = a
                 caches[model["id"]].put(keys[model["id"]][i], a)
@@ -254,8 +262,12 @@ def score_all(task, items: list[dict], models: list[dict], answers: dict, metric
                                         want, tables_json)
         else:
             scores = score_text(a.text, str(it[task.target]), want)
+            more, details = score_structured(task, a.text, it[task.target], want, m.get("prompt_tier"))
+            scores |= more
         if "latency" in want and not a.error:
             scores["latency"] = round(a.latency_s, 3)
+        if "ttft" in want and not a.error and a.ttft_s is not None:
+            scores["ttft"] = round(a.ttft_s, 3)
         return (m["id"], it["id"]), {"scores": scores, "details": details}
 
     jobs = [(m, i, it) for m in models for i, it in enumerate(items)]
@@ -351,6 +363,8 @@ def aggregate(items, models, res, metrics):
                     arr = np.asarray(list(v.values()))
                     row |= {"p50": round(float(np.percentile(arr, 50)), 3), "p90": round(float(np.percentile(arr, 90)), 3)}
                 scores.append(row)
+            if not METRICS[metric].compare:  # a neutral value (e.g. a match score): read it, do not rank it
+                continue
             for a, b in combinations([m["id"] for m in models], 2):
                 if a not in vals or b not in vals:
                     continue
@@ -418,23 +432,31 @@ def main() -> None:
         models = spec["models"]
         ev.emit("log", message=f"{len(items)} items x {len(models)} models, task {task.ref}, metrics {', '.join(metrics)}")
 
-        convs = []
+        convs, rows = [], []
         for it in items:
             row = task.with_context(it, root)
             it.update({k: row[k] for k in task.context})
             convs.append(task.messages(row))
+            rows.append(row)
             it["_slices"] = slice_labels(task, it, task.attachment(root, it) if sql else None, tables_json, sql)
+        tiers = {m.get("prompt_tier") for m in models} - {None, ""}
+        tier_convs = {t: [task.messages(r, t) for r in rows] for t in tiers if any(t in task.tiers(r) for r in rows)}
+        for t in tier_convs:
+            ev.emit("log", message=f"models with prompt_tier {t} get the dataset's {t} prompts")
         max_new = int(spec.get("max_new_tokens") or task.decoding.get("max_new_tokens", 400))
-        answers = generate_all(models, convs, max_new, int(spec.get("batch", 8)), ev)
+        gen = Gen(json_schema=task.json_schema, stream=bool(task.decoding.get("stream")))
+        answers = generate_all(models, convs, max_new, int(spec.get("batch", 8)), ev, gen=gen, tier_convs=tier_convs)
 
         res = score_all(task, items, models, answers, metrics, root, tables_json, ev)
         judge = judge_all(task, items, models, answers, res, metrics, spec.get("judge_model", "qwen3:14b"), ev)
 
         with (out / "items.jsonl").open("w", encoding="utf-8") as f:
-            for it, conv in zip(items, convs):
+            for n, (it, conv) in enumerate(zip(items, convs)):
+                variants = {t: c[n] for t, c in tier_convs.items() if c[n] != conv}
                 f.write(json.dumps({"id": it["id"], "split": it["split"], "slices": it["_slices"],
                                     "inputs": {k: it.get(k) for k in task.inputs}, "reference": it[task.target],
                                     "gold_result": it.get("_gold_result"), "messages": conv,
+                                    **({"tier_messages": variants} if variants else {}),
                                     "max_new_tokens": max_new}, ensure_ascii=False, default=str) + "\n")
         with (out / "results.jsonl").open("w", encoding="utf-8") as f:
             for m in models:
@@ -443,7 +465,9 @@ def main() -> None:
                     r = res[(m["id"], it["id"])]
                     f.write(json.dumps({"model": m["id"], "item": it["id"], "output": ans.text, "error": ans.error,
                                         "latency_s": round(ans.latency_s, 3), "input_tokens": ans.input_tokens,
-                                        "output_tokens": ans.output_tokens} | r, ensure_ascii=False, default=str) + "\n")
+                                        "output_tokens": ans.output_tokens,
+                                        "ttft_s": None if ans.ttft_s is None else round(ans.ttft_s, 3)} | r,
+                                       ensure_ascii=False, default=str) + "\n")
 
         scores, comps, breakdowns = aggregate(items, models, res, metrics)
         report = {"id": spec["id"], "version": 2, "task": task.ref, "dataset": f"{ref['id']}@{ref['version']}",
@@ -451,7 +475,9 @@ def main() -> None:
                   "limit": spec.get("limit", 0), "seed": spec.get("seed", 7),
                   "models": models, "metrics": metrics,
                   "metric_info": {m: METRICS[m].__dict__ for m in metrics},
-                  "decoding": {"do_sample": False, "max_new_tokens": max_new, "thinking": "off where the model allows"},
+                  "decoding": {"do_sample": False, "max_new_tokens": max_new, "thinking": "off where the model allows",
+                               "json_schema": bool(gen.json_schema), "stream": gen.stream,
+                               "prompt_tiers": sorted(tier_convs)},
                   "scores": scores, "comparisons": comps, "breakdowns": breakdowns, "usage": usage(models, answers),
                   "judge": judge, "created_at": now(), "workspace_id": "default"}
         (out / "report.json").write_text(json.dumps(report, indent=2, ensure_ascii=False, default=str), encoding="utf-8")

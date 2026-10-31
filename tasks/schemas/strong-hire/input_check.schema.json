@@ -1,0 +1,45 @@
+{
+  "$defs": {
+    "DocumentKind": {
+      "description": "IN-6, IN-7: what kind of document a job description or CV input looks like.",
+      "enum": [
+        "job_posting",
+        "job_list",
+        "resume",
+        "cover_letter",
+        "company_page",
+        "article",
+        "error_page",
+        "other"
+      ],
+      "title": "DocumentKind",
+      "type": "string"
+    }
+  },
+  "$id": "https://strong-hire.local/schemas/input_check.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Is the text the kind of document the user gave it as (IN-6 job description, IN-7 CV)?\n\nThe worker runs this check before the extraction. When `matches` is false, it refuses the\ninput and shows the user a fixed sentence for `looks_like` with the short `reason`.",
+  "properties": {
+    "looks_like": {
+      "$ref": "#/$defs/DocumentKind"
+    },
+    "matches": {
+      "title": "Matches",
+      "type": "boolean"
+    },
+    "reason": {
+      "default": "",
+      "description": "One short sentence on what the text is.",
+      "maxLength": 200,
+      "title": "Reason",
+      "type": "string"
+    }
+  },
+  "required": [
+    "matches",
+    "looks_like"
+  ],
+  "title": "InputCheck",
+  "type": "object"
+}

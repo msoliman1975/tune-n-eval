@@ -8,6 +8,11 @@
 
 Every target answers chat messages with greedy (or provider-default) decoding, thinking off where
 the model allows it, and reports per-answer latency and token counts.
+
+Two per-task options (Gen): `json_schema` asks the provider for JSON that matches the schema
+(Ollama `format`, Anthropic `output_config.format`, Gemini JSON mime type; local transformers models
+get no constraint and are scored on what they write), and `stream` streams the answer so the time
+to the first answer token (`ttft_s`) is measured. Thinking tokens never count as the first token.
 """
 
 from __future__ import annotations
@@ -31,6 +36,38 @@ class Answer:
     input_tokens: int | None = None
     output_tokens: int | None = None
     error: str | None = None
+    ttft_s: float | None = None  # seconds to the first answer token, when the answer was streamed
+
+
+@dataclass(frozen=True)
+class Gen:
+    """Per-task generation options, the same for every model in an evaluation."""
+
+    json_schema: dict | None = None
+    stream: bool = False
+
+    def cache_extra(self) -> list:
+        """What these options add to a cached answer's key; nothing for the defaults, so older caches stay valid."""
+        out = []
+        if self.json_schema:
+            out.append({"json_schema": self.json_schema})
+        if self.stream:
+            out.append("stream")
+        return out
+
+
+# JSON Schema keywords the Anthropic structured-output format does not accept. They are removed from the
+# schema sent; json_valid still checks the answer against the full schema.
+API_UNSUPPORTED = {"minLength", "maxLength", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum",
+                   "multipleOf", "minItems", "maxItems", "uniqueItems", "pattern"}
+
+
+def api_schema(schema):
+    if isinstance(schema, dict):
+        return {k: api_schema(v) for k, v in schema.items() if k not in API_UNSUPPORTED}
+    if isinstance(schema, list):
+        return [api_schema(v) for v in schema]
+    return schema
 
 
 def load_env() -> None:
@@ -55,7 +92,7 @@ def _tokenizer(path: str):
     return AutoTokenizer.from_pretrained(path)
 
 
-def as_sent(model: dict, messages: list[dict], max_new_tokens: int, repo: Path) -> dict:
+def as_sent(model: dict, messages: list[dict], max_new_tokens: int, repo: Path, gen: Gen = Gen()) -> dict:
     """What `model` (a registry entry) receives for these messages, built by the same code that sends it."""
     kind = model["kind"]
     if kind in ("hf_base", "hf_adapter"):
@@ -63,13 +100,13 @@ def as_sent(model: dict, messages: list[dict], max_new_tokens: int, repo: Path) 
         return {"format": "text", "label": "chat template applied (the exact token string)",
                 "text": chat_text(_tokenizer(path), messages)}
     if kind == "ollama":
-        body = OllamaTarget.request(model["ollama_tag"], messages, max_new_tokens)
+        body = OllamaTarget.request(model["ollama_tag"], messages, max_new_tokens, gen=gen)
         return {"format": "json", "label": "POST /api/chat (Ollama applies the model's chat template)", "body": body}
     if model.get("provider") == "anthropic":
-        return {"format": "json", "label": "Anthropic messages.create(...)",
-                "body": AnthropicTarget.request(model["api_model"], messages, max_new_tokens, model.get("options"))}
+        return {"format": "json", "label": "Anthropic messages." + ("stream" if gen.stream else "create") + "(...)",
+                "body": AnthropicTarget.request(model["api_model"], messages, max_new_tokens, model.get("options"), gen)}
     return {"format": "json", "label": f"POST models/{model['api_model']}:generateContent",
-            "body": GeminiTarget.request(messages, max_new_tokens, model.get("options"))}
+            "body": GeminiTarget.request(messages, max_new_tokens, model.get("options"), gen)}
 
 
 class HFTarget:
@@ -123,7 +160,8 @@ class HFTarget:
         return out  # type: ignore[return-value]
 
     def chat(self, conversations: list[list[dict]], max_new_tokens: int = 400, batch: int = 8,
-             progress=None) -> list[Answer]:
+             progress=None, gen: Gen = Gen()) -> list[Answer]:
+        """Batched greedy decoding. No schema constraint and no streaming: `gen` is accepted and ignored."""
         out: list[Answer] = []
         step = max(batch * 8, 1)
         for s in range(0, len(conversations), step):  # chunks, so progress can be reported
@@ -176,32 +214,61 @@ class OllamaTarget:
         self.warm = False
 
     @staticmethod
-    def request(tag: str, messages: list[dict], max_new_tokens: int, num_ctx: int = 8192, think: bool | None = False) -> dict:
-        body = {"model": tag, "messages": messages, "stream": False, "keep_alive": "10m",
+    def request(tag: str, messages: list[dict], max_new_tokens: int, num_ctx: int = 8192, think: bool | None = False,
+                gen: Gen = Gen()) -> dict:
+        body = {"model": tag, "messages": messages, "stream": gen.stream, "keep_alive": "10m",
                 "options": {"temperature": 0, "seed": 0, "num_ctx": num_ctx, "num_predict": max_new_tokens}}
         if think is not None:
             body["think"] = think
+        if gen.json_schema:
+            body["format"] = gen.json_schema  # Ollama constrains decoding to the schema
         return body
 
-    def one(self, messages: list[dict], max_new_tokens: int) -> Answer:
-        body = self.request(self.tag, messages, max_new_tokens, self.num_ctx, self.think)
+    def one(self, messages: list[dict], max_new_tokens: int, gen: Gen = Gen()) -> Answer:
+        body = self.request(self.tag, messages, max_new_tokens, self.num_ctx, self.think, gen)
         t0 = time.time()
+        if gen.stream:
+            return self._stream(body, messages, max_new_tokens, gen, t0)
         r = self.http.post("/api/chat", json=body)
         if r.status_code == 400 and "think" in r.text and self.think is not None:  # model without a thinking switch
             self.think = None
-            return self.one(messages, max_new_tokens)
+            return self.one(messages, max_new_tokens, gen)
         if r.status_code != 200:
             return Answer("", time.time() - t0, error=f"ollama {r.status_code}: {r.text[:300]}")
         j = r.json()
         return Answer(j["message"]["content"].strip(), time.time() - t0, j.get("prompt_eval_count"), j.get("eval_count"))
 
-    def chat(self, conversations: list[list[dict]], max_new_tokens: int = 400, progress=None, **_) -> list[Answer]:
+    def _stream(self, body: dict, messages: list[dict], max_new_tokens: int, gen: Gen, t0: float) -> Answer:
+        import json
+
+        parts, ttft, last = [], None, {}
+        with self.http.stream("POST", "/api/chat", json=body) as r:
+            if r.status_code != 200:
+                text = r.read().decode(errors="replace")
+                if r.status_code == 400 and "think" in text and self.think is not None:
+                    self.think = None
+                    return self.one(messages, max_new_tokens, gen)
+                return Answer("", time.time() - t0, error=f"ollama {r.status_code}: {text[:300]}")
+            for line in r.iter_lines():
+                if not line.strip():
+                    continue
+                last = json.loads(line)
+                piece = (last.get("message") or {}).get("content") or ""
+                if piece:
+                    if ttft is None:
+                        ttft = time.time() - t0
+                    parts.append(piece)
+        return Answer("".join(parts).strip(), time.time() - t0, last.get("prompt_eval_count"), last.get("eval_count"),
+                      None, ttft)
+
+    def chat(self, conversations: list[list[dict]], max_new_tokens: int = 400, progress=None, gen: Gen = Gen(),
+             **_) -> list[Answer]:
         if conversations and not self.warm:  # load the model first, so its load time is not counted as the first answer's latency
             self.one(conversations[0], 1)
             self.warm = True
         out = []
         for i, m in enumerate(conversations):
-            out.append(self.one(m, max_new_tokens))
+            out.append(self.one(m, max_new_tokens, gen))
             if progress and (i + 1) % 10 == 0:
                 progress(i + 1)
         return out
@@ -217,7 +284,8 @@ def split_system(messages: list[dict]) -> tuple[str, list[dict]]:
 
 class AnthropicTarget:
     """Claude through the Messages API. No sampling parameters (current models reject them); thinking
-    and effort stay at the model's defaults unless the registry entry sets `options` (e.g. effort)."""
+    and effort stay at the model's defaults unless the registry entry sets `options`: `effort`
+    ("low" .. "max") and `thinking` (sent as is, e.g. {"type": "between_tools"} on Sonnet 5.5)."""
 
     def __init__(self, model: str, options: dict | None = None, concurrency: int = 4):
         load_env()
@@ -229,24 +297,40 @@ class AnthropicTarget:
         self.model, self.options, self.concurrency = model, options or {}, concurrency
 
     @staticmethod
-    def request(model: str, messages: list[dict], max_new_tokens: int, options: dict | None = None) -> dict:
-        """The messages.create keyword arguments."""
+    def request(model: str, messages: list[dict], max_new_tokens: int, options: dict | None = None,
+                gen: Gen = Gen()) -> dict:
+        """The messages.create (or messages.stream) keyword arguments."""
+        options = options or {}
         system, msgs = split_system(messages)
-        kw = {"output_config": {"effort": options["effort"]}} if (options or {}).get("effort") else {}
+        config = {"effort": options["effort"]} if options.get("effort") else {}
+        if gen.json_schema:
+            config["format"] = {"type": "json_schema", "schema": api_schema(gen.json_schema)}
+        kw = {"output_config": config} if config else {}
+        if options.get("thinking"):
+            kw["thinking"] = options["thinking"]
         return {"model": model, "max_tokens": max(16000, max_new_tokens), "system": system, "messages": msgs} | kw
 
-    def one(self, messages: list[dict], max_new_tokens: int) -> Answer:
-        t0 = time.time()
+    def one(self, messages: list[dict], max_new_tokens: int, gen: Gen = Gen()) -> Answer:
+        req = self.request(self.model, messages, max_new_tokens, self.options, gen)
+        t0, ttft = time.time(), None
         try:
-            resp = self.client.messages.create(**self.request(self.model, messages, max_new_tokens, self.options))
+            if gen.stream:
+                with self.client.messages.stream(**req) as stream:
+                    for piece in stream.text_stream:  # text only: thinking blocks are not the answer
+                        if piece and ttft is None:
+                            ttft = time.time() - t0
+                    resp = stream.get_final_message()
+            else:
+                resp = self.client.messages.create(**req)
         except Exception as e:
             return Answer("", time.time() - t0, error=f"{type(e).__name__}: {e}"[:300])
         text = "".join(b.text for b in resp.content if b.type == "text").strip()
         err = "refused" if resp.stop_reason == "refusal" else None
-        return Answer(text, time.time() - t0, resp.usage.input_tokens, resp.usage.output_tokens, err)
+        return Answer(text, time.time() - t0, resp.usage.input_tokens, resp.usage.output_tokens, err, ttft)
 
-    def chat(self, conversations: list[list[dict]], max_new_tokens: int = 400, progress=None, **_) -> list[Answer]:
-        return parallel(self.one, conversations, max_new_tokens, self.concurrency, progress)
+    def chat(self, conversations: list[list[dict]], max_new_tokens: int = 400, progress=None, gen: Gen = Gen(),
+             **_) -> list[Answer]:
+        return parallel(lambda m, n: self.one(m, n, gen), conversations, max_new_tokens, self.concurrency, progress)
 
 
 class GeminiTarget:
@@ -265,17 +349,21 @@ class GeminiTarget:
         self.model, self.options, self.concurrency = model, options or {}, concurrency
 
     @staticmethod
-    def request(messages: list[dict], max_new_tokens: int, options: dict | None = None) -> dict:
+    def request(messages: list[dict], max_new_tokens: int, options: dict | None = None, gen: Gen = Gen()) -> dict:
+        """No streaming (ttft is not measured for Gemini); a JSON schema asks for JSON output only."""
         system, msgs = split_system(messages)
+        config = {"temperature": 0, "maxOutputTokens": max(8192, max_new_tokens)}
+        if gen.json_schema:
+            config["responseMimeType"] = "application/json"
         body = {"contents": [{"role": "model" if m["role"] == "assistant" else "user", "parts": [{"text": m["content"]}]}
                              for m in msgs],
-                "generationConfig": {"temperature": 0, "maxOutputTokens": max(8192, max_new_tokens)} | (options or {})}
+                "generationConfig": config | (options or {})}
         if system:
             body["systemInstruction"] = {"parts": [{"text": system}]}
         return body
 
-    def one(self, messages: list[dict], max_new_tokens: int) -> Answer:
-        body = self.request(messages, max_new_tokens, self.options)
+    def one(self, messages: list[dict], max_new_tokens: int, gen: Gen = Gen()) -> Answer:
+        body = self.request(messages, max_new_tokens, self.options, gen)
         t0 = time.time()
         for attempt in range(4):
             r = self.http.post(self.URL.format(model=self.model), json=body, headers={"x-goog-api-key": self.key})
@@ -292,8 +380,9 @@ class GeminiTarget:
                       (u.get("candidatesTokenCount") or 0) + (u.get("thoughtsTokenCount") or 0),
                       None if text else f"no text (finishReason {cand.get('finishReason')})")
 
-    def chat(self, conversations: list[list[dict]], max_new_tokens: int = 400, progress=None, **_) -> list[Answer]:
-        return parallel(self.one, conversations, max_new_tokens, self.concurrency, progress)
+    def chat(self, conversations: list[list[dict]], max_new_tokens: int = 400, progress=None, gen: Gen = Gen(),
+             **_) -> list[Answer]:
+        return parallel(lambda m, n: self.one(m, n, gen), conversations, max_new_tokens, self.concurrency, progress)
 
 
 def parallel(fn, conversations, max_new_tokens, concurrency, progress) -> list[Answer]:

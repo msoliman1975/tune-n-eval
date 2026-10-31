@@ -25,6 +25,7 @@ the Qwen3-14B judge, and exported fine-tunes.
 | Model Registry | `services/registry` | One JSON per model: `hf_base` (trainable if it has a `train_preset`), `hf_adapter` (fine-tune; `parent` = its base), `ollama`, `api` (Anthropic, Google; `paid`). Train registers each finished run; Eval appends each evaluation's summary. |
 | Train service | `services/train` | Fine-tunes a registry model (`model: gemma-4-e4b`) on a dataset of any task, loss on the target only, rows longer than the preset's sequence dropped (never truncated). Export to Ollama from the run page. |
 | Eval service | `services/eval` | Generic evaluations (`run.py`): N models × one dataset × chosen metrics; mango evaluations (`evaluate.py`) unchanged. Playground endpoint `POST /generate`. |
+| Strong Hire tasks | `tasks/sh-*`, `datasets/strong-hire/` | Nine built-in tasks and datasets that measure models on Strong Hire's LLM jobs, with JSON-schema output, per-tier prompts and the product's own scoring formulas. See `docs/runbook-strong-hire.md`. |
 
 ## Exploring a dataset
 

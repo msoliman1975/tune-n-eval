@@ -1,0 +1,42 @@
+{
+  "id": "sh-coach-turn",
+  "version": "v1",
+  "name": "Strong Hire: story coach turn (CO-3, CO-4, CO-9)",
+  "description": "One coach reply in a story-building session with a simulated candidate (vague, overclaiming, off topic, strong), in the gentle and the direct style. The coach must ask one question at a time and back every story part with the candidate's own words. Prompts are Strong Hire's own (built by scripts/build_strong_hire.py); a model with prompt_tier small gets the small-model variant where the row has one.",
+  "user_template": "",
+  "inputs": [
+    "title",
+    "messages"
+  ],
+  "target": "reference",
+  "messages_field": "messages",
+  "output": {
+    "format": "json",
+    "schema": "schemas/strong-hire/coach_reply.schema.json"
+  },
+  "decoding": {
+    "max_new_tokens": 1024
+  },
+  "scoring": {
+    "text_path": "message",
+    "quotes_path": "parts[].quotes[]"
+  },
+  "slices": [
+    "candidate",
+    "style"
+  ],
+  "metrics": {
+    "available": [
+      "json_valid",
+      "one_question",
+      "quotes_verbatim",
+      "latency"
+    ],
+    "default": [
+      "json_valid",
+      "one_question",
+      "quotes_verbatim",
+      "latency"
+    ]
+  }
+}

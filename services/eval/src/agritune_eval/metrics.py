@@ -4,7 +4,10 @@ A task lists the metrics that make sense for it (tasks/*.json "metrics.available
 some. Each metric scores one answer at a time; aggregation, intervals and comparisons live in run.py.
 
 Kinds: rate (0/1 per item, reported as %), score (0-1), scale (1-5), seconds (lower is better),
-category (a label per failed item, reported as counts).
+category (a label per failed item, reported as counts), value (a number to read per slice, e.g. a
+0-100 match score; no model is "better" for a higher value, so pairs are not compared).
+
+The structured and Strong Hire metrics are scored in structured.py.
 """
 
 from __future__ import annotations
@@ -18,6 +21,8 @@ APPROACHES = {
     "execution": "Execution-based: run the answer and compare the result with the reference's",
     "reference": "Reference match: compare the answer's text or structure with the reference",
     "llm_judge": "LLM judge: a local model grades the answer against the reference with a rubric",
+    "structured": "Structured output: parse the JSON answer and check it against the schema and the reference",
+    "product": "Product formula: the product's own code turns the answer into a result, compared with a human label",
     "efficiency": "Efficiency: time and tokens per answer",
 }
 
@@ -32,6 +37,11 @@ class Metric:
     higher_is_better: bool = True
     sql_only: bool = False
     judge: bool = False
+
+    @property
+    def compare(self) -> bool:
+        """Whether a model pair is compared on this metric (not for counts or neutral values)."""
+        return self.kind not in ("category", "value")
 
 
 METRICS = {m.id: m for m in [
@@ -53,8 +63,40 @@ METRICS = {m.id: m for m in [
     Metric("sql_failure_judge", "Failure analysis", "llm_judge", "category",
            "For each answer that fails execution accuracy, a local judge names the main error: wrong table or "
            "column, join, filter, aggregation, ...", sql_only=True, judge=True),
+    Metric("json_valid", "Valid JSON", "structured", "rate",
+           "The answer is JSON that matches the task's JSON Schema (the product's output contract)."),
+    Metric("field_match", "Field accuracy", "structured", "score",
+           "Mean agreement with the reference over the task's fields: text fields match after normalization or by "
+           "most words, enum fields must be equal, list fields score F1 with fuzzy item matching (0-1)."),
+    Metric("label_acc", "Label accuracy", "structured", "rate",
+           "The answer's label (e.g. probe or move on, the document kind) equals the reference label. Slice by the "
+           "expected label to read recall per class."),
+    Metric("one_question", "One question at a time", "structured", "rate",
+           "The reply (or the task's message field) contains at most one question mark."),
+    Metric("word_limit", "Within the word limit", "structured", "rate",
+           "The spoken reply has no more words than the product's limit for this model tier."),
+    Metric("quotes_verbatim", "Quotes are the candidate's words", "structured", "score",
+           "Share of the answer's quotes found word for word in what the candidate said (case and punctuation "
+           "ignored; '...' may skip words; at least 3 words)."),
+    Metric("rubric_within_one", "Rubric scores within one point", "product", "score",
+           "Per question and competency the human scored: the model's 1-4 score is within one point. Scores whose "
+           "quotes are not the candidate's words are dropped first, as Strong Hire does; a missing score is a miss."),
+    Metric("hire_signal_within_one", "Hire signal within one band", "product", "rate",
+           "The hire signal Strong Hire computes from the model's scores is within one band of the human signal "
+           "(spec bar: 85%)."),
+    Metric("hire_signal_exact", "Hire signal exact", "product", "rate",
+           "The computed hire signal equals the human signal."),
+    Metric("gap_fit", "Gap analysis fit", "product", "rate",
+           "The match score Strong Hire computes from the model's ratings falls in the band the pair expects "
+           "(a matching resume high, a resume for another job low)."),
+    Metric("gap_match_score", "Gap match score", "product", "value",
+           "The 0-100 match score Strong Hire computes from the model's ratings. Read it per fit slice: matching "
+           "pairs should score well above mismatched ones."),
     Metric("latency", "Latency", "efficiency", "seconds",
            "Seconds per answer (amortized over the batch for local GPU models).", higher_is_better=False),
+    Metric("ttft", "Time to first token", "efficiency", "seconds",
+           "Seconds until the first answer token arrives (thinking excluded). Streamed tasks only; Ollama and "
+           "Claude models (not local transformers or Gemini).", higher_is_better=False),
 ]}
 
 FAILURE_CATEGORIES = {

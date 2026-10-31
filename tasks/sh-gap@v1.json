@@ -1,0 +1,39 @@
+{
+  "id": "sh-gap",
+  "version": "v1",
+  "name": "Strong Hire: gap analysis (GA-1)",
+  "description": "Rate a CV against a job posting's requirements and competencies. Strong Hire turns the ratings into a 0-100 match score in code (with its evidence rule); gap_match_score is that score and gap_fit checks it against the pair's expected band: match (same job family, seniority within one level) 60-100, mismatch (unrelated family) 0-40. Adjacent families and big seniority gaps have no band; read their gap_match_score per fit slice. Prompts are Strong Hire's own (built by scripts/build_strong_hire.py); a model with prompt_tier small gets the small-model variant where the row has one.",
+  "user_template": "",
+  "inputs": [
+    "title",
+    "messages"
+  ],
+  "target": "reference",
+  "messages_field": "messages",
+  "output": {
+    "format": "json",
+    "schema": "schemas/strong-hire/gap_assessment.schema.json"
+  },
+  "decoding": {
+    "max_new_tokens": 3000
+  },
+  "slices": [
+    "fit",
+    "mode",
+    "posting_family"
+  ],
+  "metrics": {
+    "available": [
+      "json_valid",
+      "gap_fit",
+      "gap_match_score",
+      "latency"
+    ],
+    "default": [
+      "json_valid",
+      "gap_fit",
+      "gap_match_score",
+      "latency"
+    ]
+  }
+}

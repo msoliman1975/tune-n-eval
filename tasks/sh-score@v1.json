@@ -1,0 +1,47 @@
+{
+  "id": "sh-score",
+  "version": "v1",
+  "name": "Strong Hire: interview scorer (FB-1, FB-2)",
+  "description": "Score a finished interview transcript into Strong Hire's Scorecard. As in the product, scores whose quotes are not the candidate's words are dropped, and the hire signal is computed in code from the remaining scores; both are compared with the human gold set. One call per transcript: the product's re-ask for lost quotes is not simulated. Prompts are Strong Hire's own (built by scripts/build_strong_hire.py); a model with prompt_tier small gets the small-model variant where the row has one.",
+  "user_template": "",
+  "inputs": [
+    "title",
+    "messages"
+  ],
+  "target": "reference",
+  "messages_field": "messages",
+  "output": {
+    "format": "json",
+    "schema": "schemas/strong-hire/scorecard.schema.json"
+  },
+  "decoding": {
+    "max_new_tokens": 4096
+  },
+  "scoring": {
+    "quotes_path": "per_question[].scores[].quotes[]"
+  },
+  "slices": [
+    "interview_type",
+    "quality",
+    "gold_signal",
+    "mode"
+  ],
+  "metrics": {
+    "available": [
+      "json_valid",
+      "hire_signal_within_one",
+      "hire_signal_exact",
+      "rubric_within_one",
+      "quotes_verbatim",
+      "latency"
+    ],
+    "default": [
+      "json_valid",
+      "hire_signal_within_one",
+      "hire_signal_exact",
+      "rubric_within_one",
+      "quotes_verbatim",
+      "latency"
+    ]
+  }
+}

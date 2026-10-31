@@ -1,0 +1,135 @@
+{
+  "$defs": {
+    "Level": {
+      "description": "Normalized seniority (IV-6). Company-specific labels such as L5 or E5 map to these.",
+      "enum": [
+        "new_grad",
+        "mid",
+        "senior",
+        "staff_principal"
+      ],
+      "title": "Level",
+      "type": "string"
+    },
+    "RoleFamily": {
+      "enum": [
+        "swe",
+        "data_ml",
+        "pm",
+        "design",
+        "tpm",
+        "other"
+      ],
+      "title": "RoleFamily",
+      "type": "string"
+    }
+  },
+  "$id": "https://strong-hire.local/schemas/job_posting.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Structured data extracted from a job posting. The user confirms or edits it (IN-2).",
+  "properties": {
+    "company_name": {
+      "minLength": 1,
+      "title": "Company Name",
+      "type": "string"
+    },
+    "level": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Level"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Normalized level, if it can be inferred."
+    },
+    "level_label": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Level as written in the posting, for example 'L5' or 'Senior'.",
+      "title": "Level Label"
+    },
+    "location": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Location"
+    },
+    "must_have_skills": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Must Have Skills",
+      "type": "array"
+    },
+    "nice_to_have_skills": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Nice To Have Skills",
+      "type": "array"
+    },
+    "responsibilities": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Responsibilities",
+      "type": "array"
+    },
+    "role_family": {
+      "$ref": "#/$defs/RoleFamily",
+      "default": "other"
+    },
+    "source_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Url"
+    },
+    "team": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Team"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "company_name",
+    "title"
+  ],
+  "title": "JobPosting",
+  "type": "object"
+}

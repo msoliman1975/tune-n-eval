@@ -1,0 +1,42 @@
+{
+  "id": "sh-probe",
+  "version": "v1",
+  "name": "Strong Hire: probe or move on (IV-3)",
+  "description": "After each candidate answer in a scripted interview, decide whether to ask a follow-up. The label is the transcript author's mark of vague answers (probe) versus complete ones (move_on). Slice by expected for recall on each. Prompts are Strong Hire's own (built by scripts/build_strong_hire.py); a model with prompt_tier small gets the small-model variant where the row has one.",
+  "user_template": "",
+  "inputs": [
+    "title",
+    "messages"
+  ],
+  "target": "reference",
+  "messages_field": "messages",
+  "output": {
+    "format": "json",
+    "schema": "schemas/strong-hire/probe_decision.schema.json"
+  },
+  "decoding": {
+    "max_new_tokens": 256
+  },
+  "scoring": {
+    "labels": [
+      "action"
+    ]
+  },
+  "slices": [
+    "expected",
+    "interview_type",
+    "quality"
+  ],
+  "metrics": {
+    "available": [
+      "json_valid",
+      "label_acc",
+      "latency"
+    ],
+    "default": [
+      "json_valid",
+      "label_acc",
+      "latency"
+    ]
+  }
+}

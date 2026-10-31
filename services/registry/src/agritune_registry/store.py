@@ -38,6 +38,9 @@ class ModelEntry(BaseModel):
     lineage: dict = Field(default_factory=dict)  # dataset, task, run_id, preset, mlflow_run_id
     paid: bool = False
     options: dict = Field(default_factory=dict)  # provider request options, e.g. {"effort": "low"} for Claude
+    # Which prompt variant the model gets on tasks whose rows carry several (Strong Hire sends its "small"
+    # prompts to small models). None, or a tier the row lacks, means the default prompt.
+    prompt_tier: Literal["small", "medium", "large"] | None = None
     tags: list[str] = Field(default_factory=list)
     notes: str = ""
     evaluations: list[dict] = Field(default_factory=list)  # appended by the Eval service
@@ -117,6 +120,18 @@ SEEDS = [
          tags=["qwen", "judge"], notes="Local generator and judge."),
     dict(id="claude-sonnet-5-5", name="Claude Sonnet 5.5", kind="api", provider="anthropic",
          api_model="claude-sonnet-5-5", paid=True, tags=["api"], notes="Needs ANTHROPIC_API_KEY in services/eval/.env."),
+    # Strong Hire's models (docs/runbook-strong-hire.md). The Qwen2.5 pair is what its local profile runs
+    # (Ollama, Q4_K_M, 8192 context); prompt_tier matches the tier Strong Hire gives each.
+    dict(id="qwen2.5-3b", name="Qwen2.5 3B Instruct (Ollama Q4)", kind="ollama", ollama_tag="qwen2.5:3b-instruct",
+         prompt_tier="small", tags=["qwen", "strong-hire"],
+         notes="Strong Hire local profile: extractor, interviewer, coach (small tier). ollama pull qwen2.5:3b-instruct"),
+    dict(id="qwen2.5-7b", name="Qwen2.5 7B Instruct (Ollama Q4)", kind="ollama", ollama_tag="qwen2.5:7b-instruct",
+         prompt_tier="medium", tags=["qwen", "strong-hire"],
+         notes="Strong Hire local profile: planner, scorer (medium tier). ollama pull qwen2.5:7b-instruct"),
+    dict(id="claude-haiku-5-5", name="Claude Haiku 5.5", kind="api", provider="anthropic", api_model="claude-haiku-5-5",
+         paid=True, prompt_tier="large", tags=["api", "strong-hire"],
+         notes="Strong Hire claude profile: extractor, interviewer, coach. Default thinking and effort, as Strong "
+               "Hire sends them. Needs ANTHROPIC_API_KEY in services/eval/.env."),
     dict(id="gemini-flash", name="Gemini Flash (latest)", kind="api", provider="google", api_model="gemini-flash-latest",
          paid=True, tags=["api"],
          notes="Needs GEMINI_API_KEY in services/eval/.env. Check the model id against your key's model list."),

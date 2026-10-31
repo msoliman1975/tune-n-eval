@@ -1,0 +1,34 @@
+{
+  "$defs": {
+    "AnswerConduct": {
+      "description": "IV-12: whether a candidate turn belongs in the interview.\n\n`off_scope` is not a weak or off-topic answer (IV-3 probes those). It is a turn about\nsomething outside the interview, such as an unrelated subject or a request for an unrelated\ntask. `inappropriate` is abuse, harassment, threats, hate or sexual content.",
+      "enum": [
+        "ok",
+        "off_scope",
+        "inappropriate"
+      ],
+      "title": "AnswerConduct",
+      "type": "string"
+    }
+  },
+  "$id": "https://strong-hire.local/schemas/answer_check.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "IV-12: the interviewer model's check of one candidate turn, before the reply.\n\nThe runner warns the candidate on a turn that is not `ok`, and closes the interview when\nthe warnings run out. `reason` goes to the admin traces only, never to the candidate.",
+  "properties": {
+    "conduct": {
+      "$ref": "#/$defs/AnswerConduct"
+    },
+    "reason": {
+      "default": "",
+      "maxLength": 200,
+      "title": "Reason",
+      "type": "string"
+    }
+  },
+  "required": [
+    "conduct"
+  ],
+  "title": "AnswerCheck",
+  "type": "object"
+}

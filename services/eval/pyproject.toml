@@ -11,6 +11,7 @@ dependencies = [
     "bitsandbytes>=0.50",
     "fastapi>=0.115",
     "httpx>=0.28",
+    "jsonschema>=4.23",
     "nltk>=3.9",
     "numpy>=2.0",
     "peft>=0.15",

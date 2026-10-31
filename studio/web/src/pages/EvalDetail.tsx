@@ -259,7 +259,7 @@ function ItemCard({ r, it, metric, name }: { r: EvalReport; it: EvalItem; metric
         <span className="flex flex-wrap gap-1">
           {r.models.map((m, i) => {
             const v = it.results[m.id]?.scores[metric];
-            const ok = typeof v === "number" ? (r.metric_info[metric].kind === "scale" ? v >= 4 : v >= (r.metric_info[metric].kind === "score" ? 0.5 : 1)) : null;
+            const ok = typeof v === "number" && r.metric_info[metric].kind !== "value" ? (r.metric_info[metric].kind === "scale" ? v >= 4 : v >= (r.metric_info[metric].kind === "score" ? 0.5 : 1)) : null;
             return <span key={m.id} className="inline-flex items-center gap-1"><Swatch i={i} /><Badge value={ok === null ? "unknown" : ok ? "pass" : "fail"} label={typeof v === "number" && r.metric_info[metric].kind !== "rate" ? fmtMetric(r.metric_info[metric].kind, v) : ok === null ? "—" : ok ? "pass" : "fail"} /></span>;
           })}
         </span>
