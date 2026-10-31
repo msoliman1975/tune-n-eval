@@ -2,7 +2,7 @@
   "id": "sh-score",
   "version": "v1",
   "name": "Strong Hire: interview scorer (FB-1, FB-2)",
-  "description": "Score a finished interview transcript into Strong Hire's Scorecard. As in the product, a scorecard that does not match the schema is rejected, scores whose quotes are not the candidate's words are dropped, and the hire signal is computed in code from the remaining scores; it is compared with the human gold set. Read hire_signal_kappa first: within-one-band is easy to reach by guessing (the report shows the guessing baselines). One call per transcript: the product's re-ask for lost quotes and its retry after a rejected scorecard are not simulated.",
+  "description": "Score a finished interview transcript into Strong Hire's ScorerOutput: a Scorecard that must hold at least one per-question entry, each with at least one competency score. As in the product, a scorecard that does not match the schema is rejected, scores whose quotes are not the candidate's words are dropped, and the hire signal is computed in code from the remaining scores; it is compared with the human gold set. Read hire_signal_kappa first: within-one-band is easy to reach by guessing (the report shows the guessing baselines). One call per transcript: the product's re-ask for lost quotes and its retry after a rejected scorecard are not simulated.",
   "user_template": "",
   "inputs": [
     "title",
@@ -12,7 +12,7 @@
   "messages_field": "messages",
   "output": {
     "format": "json",
-    "schema": "schemas/strong-hire/scorecard.schema.json"
+    "schema": "schemas/strong-hire/scorer_output.schema.json"
   },
   "decoding": {
     "max_new_tokens": 4096

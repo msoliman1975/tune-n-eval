@@ -237,9 +237,10 @@
       "type": "object"
     }
   },
-  "$id": "https://strong-hire.local/schemas/scorecard.schema.json",
+  "$id": "https://strong-hire.local/schemas/scorer_output.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
+  "description": "FB-1, FB-2: what the scorer model must return. Only for `gateway.complete(output_type=)`.\n\nSame shape as Scorecard, but `per_question` is required with at least one entry, so a\nschema-constrained model cannot leave it out. Scorecard stays as it is, because it also reads\nstored scorecards and holds the worker's final card, where `per_question` can be empty (old\nrows, or every per-question score lost its quotes).",
   "properties": {
     "competency_scores": {
       "description": "Overall score per competency across the session.",
@@ -254,9 +255,11 @@
       "$ref": "#/$defs/HireSignal"
     },
     "per_question": {
+      "description": "One entry per question that was asked, each with at least one score.",
       "items": {
         "$ref": "#/$defs/QuestionScore"
       },
+      "minItems": 1,
       "title": "Per Question",
       "type": "array"
     },
@@ -291,9 +294,10 @@
     "hire_signal",
     "rationale",
     "competency_scores",
+    "per_question",
     "scorer_model",
     "rubric_version"
   ],
-  "title": "Scorecard",
+  "title": "ScorerOutput",
   "type": "object"
 }
