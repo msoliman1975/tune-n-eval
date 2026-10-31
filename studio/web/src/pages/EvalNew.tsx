@@ -5,7 +5,7 @@ import { Badge, Button, Card, ErrorNote, Field, inputCls } from "../ui";
 import { where } from "./Models";
 
 const APPROACH_ORDER = ["execution", "reference", "structured", "product", "llm_judge", "efficiency"];
-const APPROACH_LABEL: Record<string, string> = { execution: "Execution-based", reference: "Reference match", llm_judge: "LLM judge", efficiency: "Efficiency" };
+const APPROACH_LABEL: Record<string, string> = { execution: "Execution-based", reference: "Reference match", structured: "Structured output", product: "Product formula", llm_judge: "LLM judge", efficiency: "Efficiency" };
 
 export function EvalNew({ query }: { query: URLSearchParams }) {
   const models = useQuery({ queryKey: ["models"], queryFn: api.models });
