@@ -1,0 +1,50 @@
+{
+  "id": "sh-input-check",
+  "version": "v1",
+  "name": "Strong Hire: is this a job description / a CV? (IN-6, IN-7)",
+  "description": "Each document is checked as the input the user gave it as. label_acc is the accept or refuse decision (matches); field_match is the named document kind (looks_like). Slice by expected to read false refusals (accept) and false accepts (refuse) separately. Prompts are Strong Hire's own (built by scripts/build_strong_hire.py); a model with prompt_tier small gets the small-model variant where the row has one.",
+  "user_template": "",
+  "inputs": [
+    "title",
+    "messages"
+  ],
+  "target": "reference",
+  "messages_field": "messages",
+  "output": {
+    "format": "json",
+    "schema": "schemas/strong-hire/input_check.schema.json"
+  },
+  "decoding": {
+    "max_new_tokens": 256
+  },
+  "scoring": {
+    "labels": [
+      "matches"
+    ],
+    "fields": [
+      {
+        "path": "looks_like",
+        "type": "enum"
+      }
+    ]
+  },
+  "slices": [
+    "expected",
+    "doc_kind",
+    "expected_input"
+  ],
+  "metrics": {
+    "available": [
+      "json_valid",
+      "label_acc",
+      "field_match",
+      "latency"
+    ],
+    "default": [
+      "json_valid",
+      "label_acc",
+      "field_match",
+      "latency"
+    ]
+  }
+}

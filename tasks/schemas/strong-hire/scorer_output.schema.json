@@ -1,0 +1,303 @@
+{
+  "$defs": {
+    "Competency": {
+      "description": "Scored competencies from the spec, grouped by interview type in COMPETENCIES_BY_TYPE.",
+      "enum": [
+        "ownership",
+        "impact",
+        "collaboration",
+        "conflict_handling",
+        "learning_from_failure",
+        "communication",
+        "role_fit",
+        "depth_of_experience",
+        "judgment",
+        "motivation",
+        "team_fit",
+        "scope_at_level",
+        "technical_depth",
+        "accuracy",
+        "reasoning",
+        "trade_offs",
+        "clarity_of_explanation",
+        "problem_framing",
+        "structure",
+        "user_and_business_sense",
+        "estimation_logic",
+        "prioritization",
+        "recommendation",
+        "logistics_and_expectations"
+      ],
+      "title": "Competency",
+      "type": "string"
+    },
+    "CompetencyScore": {
+      "additionalProperties": false,
+      "properties": {
+        "competency": {
+          "$ref": "#/$defs/Competency"
+        },
+        "justification": {
+          "minLength": 1,
+          "title": "Justification",
+          "type": "string"
+        },
+        "quotes": {
+          "description": "Transcript quotes backing the score.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Quotes",
+          "type": "array"
+        },
+        "score": {
+          "maximum": 4,
+          "minimum": 1,
+          "title": "Score",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "competency",
+        "score",
+        "justification",
+        "quotes"
+      ],
+      "title": "CompetencyScore",
+      "type": "object"
+    },
+    "DeliveryMetrics": {
+      "additionalProperties": false,
+      "description": "DM-1: how one answer was delivered, from turn timestamps and text. No audio is used.",
+      "properties": {
+        "duration_seconds": {
+          "minimum": 0,
+          "title": "Duration Seconds",
+          "type": "number"
+        },
+        "fillers_per_minute": {
+          "minimum": 0,
+          "title": "Fillers Per Minute",
+          "type": "number"
+        },
+        "words_per_minute": {
+          "minimum": 0,
+          "title": "Words Per Minute",
+          "type": "number"
+        }
+      },
+      "required": [
+        "words_per_minute",
+        "fillers_per_minute",
+        "duration_seconds"
+      ],
+      "title": "DeliveryMetrics",
+      "type": "object"
+    },
+    "HireSignal": {
+      "description": "FB-1. Ordered from strongest to weakest.",
+      "enum": [
+        "Strong Hire",
+        "Hire",
+        "Lean Hire",
+        "Lean No Hire",
+        "No Hire"
+      ],
+      "title": "HireSignal",
+      "type": "string"
+    },
+    "QuestionScore": {
+      "additionalProperties": false,
+      "properties": {
+        "delivery": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DeliveryMetrics"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "DM-1: set by the worker after scoring, never by the model."
+        },
+        "misses": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Misses",
+          "type": "array"
+        },
+        "question_ref": {
+          "minLength": 1,
+          "title": "Question Ref",
+          "type": "string"
+        },
+        "question_text": {
+          "minLength": 1,
+          "title": "Question Text",
+          "type": "string"
+        },
+        "scores": {
+          "items": {
+            "$ref": "#/$defs/CompetencyScore"
+          },
+          "minItems": 1,
+          "title": "Scores",
+          "type": "array"
+        },
+        "story_fix": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "ST-6: the fix for that story, sent to it as a note.",
+          "title": "Story Fix"
+        },
+        "story_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "ST-6: the library story this answer used, if any.",
+          "title": "Story Id"
+        },
+        "strengths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Strengths",
+          "type": "array"
+        },
+        "value_scores": {
+          "items": {
+            "$ref": "#/$defs/ValueScore"
+          },
+          "title": "Value Scores",
+          "type": "array"
+        }
+      },
+      "required": [
+        "question_ref",
+        "question_text",
+        "scores"
+      ],
+      "title": "QuestionScore",
+      "type": "object"
+    },
+    "ValueScore": {
+      "additionalProperties": false,
+      "description": "Score for one company value (Principle.name), same 1 to 4 rubric as competencies.",
+      "properties": {
+        "justification": {
+          "minLength": 1,
+          "title": "Justification",
+          "type": "string"
+        },
+        "quotes": {
+          "description": "Transcript quotes backing the score.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Quotes",
+          "type": "array"
+        },
+        "score": {
+          "maximum": 4,
+          "minimum": 1,
+          "title": "Score",
+          "type": "integer"
+        },
+        "value": {
+          "minLength": 1,
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value",
+        "score",
+        "justification",
+        "quotes"
+      ],
+      "title": "ValueScore",
+      "type": "object"
+    }
+  },
+  "$id": "https://strong-hire.local/schemas/scorer_output.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "FB-1, FB-2: what the scorer model must return. Only for `gateway.complete(output_type=)`.\n\nSame shape as Scorecard, but `per_question` is required with at least one entry, so a\nschema-constrained model cannot leave it out. Scorecard stays as it is, because it also reads\nstored scorecards and holds the worker's final card, where `per_question` can be empty (old\nrows, or every per-question score lost its quotes).",
+  "properties": {
+    "competency_scores": {
+      "description": "Overall score per competency across the session.",
+      "items": {
+        "$ref": "#/$defs/CompetencyScore"
+      },
+      "minItems": 1,
+      "title": "Competency Scores",
+      "type": "array"
+    },
+    "hire_signal": {
+      "$ref": "#/$defs/HireSignal"
+    },
+    "per_question": {
+      "description": "One entry per question that was asked, each with at least one score.",
+      "items": {
+        "$ref": "#/$defs/QuestionScore"
+      },
+      "minItems": 1,
+      "title": "Per Question",
+      "type": "array"
+    },
+    "rationale": {
+      "description": "3 to 5 sentences, like a debrief summary.",
+      "minLength": 1,
+      "title": "Rationale",
+      "type": "string"
+    },
+    "rubric_version": {
+      "description": "Prompt ref, for example 'scorer/rubric.v1'.",
+      "minLength": 1,
+      "title": "Rubric Version",
+      "type": "string"
+    },
+    "scorer_model": {
+      "description": "Gateway model alias, never a vendor id.",
+      "minLength": 1,
+      "title": "Scorer Model",
+      "type": "string"
+    },
+    "value_scores": {
+      "description": "Overall score per company value. Empty in generic mode.",
+      "items": {
+        "$ref": "#/$defs/ValueScore"
+      },
+      "title": "Value Scores",
+      "type": "array"
+    }
+  },
+  "required": [
+    "hire_signal",
+    "rationale",
+    "competency_scores",
+    "per_question",
+    "scorer_model",
+    "rubric_version"
+  ],
+  "title": "ScorerOutput",
+  "type": "object"
+}

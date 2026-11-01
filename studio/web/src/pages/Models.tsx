@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, type ModelEntry } from "../api";
+import { api, type ModelEntry, type PromptTier } from "../api";
 import { Badge, Button, Card, Code, ErrorNote, Field, inputCls, Tabs, when } from "../ui";
 
 const KIND: Record<string, string> = { hf_base: "base (local GPU)", hf_adapter: "fine-tuned", ollama: "Ollama", api: "API" };
@@ -201,11 +201,12 @@ export function ModelDetail({ id }: { id: string }) {
   const qc = useQueryClient();
   const m = useQuery({ queryKey: ["model", id], queryFn: () => api.model(id) });
   const models = useQuery({ queryKey: ["models"], queryFn: api.models });
-  const [edit, setEdit] = useState<{ name?: string; tags?: string[]; notes?: string; options?: string }>({});
+  const [edit, setEdit] = useState<{ name?: string; tags?: string[]; notes?: string; options?: string; prompt_tier?: string }>({});
   const save = useMutation({
     mutationFn: () => api.updateModel(id, {
       ...(edit.name !== undefined ? { name: edit.name } : {}), ...(edit.tags !== undefined ? { tags: edit.tags } : {}),
       ...(edit.notes !== undefined ? { notes: edit.notes } : {}), ...(edit.options !== undefined ? { options: JSON.parse(edit.options || "{}") } : {}),
+      ...(edit.prompt_tier !== undefined ? { prompt_tier: (edit.prompt_tier || null) as PromptTier | null } : {}),
     }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["model", id] }); qc.invalidateQueries({ queryKey: ["models"] }); setEdit({}); },
   });
@@ -234,7 +235,7 @@ export function ModelDetail({ id }: { id: string }) {
         <Card title="Details">
           <dl className="grid grid-cols-[8rem_1fr] gap-x-3 gap-y-1 text-sm">
             {([["kind", KIND[e.kind]], ["provider", e.provider], ["checkpoint", e.hf_id], ["adapter", e.adapter_uri], ["ollama tag", e.ollama_tag],
-               ["api model", e.api_model], ["train preset", e.train_preset], ["paid", e.paid ? "yes" : "no"], ["registered", when(e.created_at)]] as [string, unknown][])
+               ["api model", e.api_model], ["train preset", e.train_preset], ["prompt tier", e.prompt_tier], ["paid", e.paid ? "yes" : "no"], ["registered", when(e.created_at)]] as [string, unknown][])
               .filter(([, v]) => v).map(([k, v]) => <Row key={k} k={k}>{String(v)}</Row>)}
             {e.parent && <Row k="parent"><a className="text-accent" href={`#/models/${e.parent}`}>{e.parent}</a></Row>}
           </dl>
@@ -258,6 +259,10 @@ export function ModelDetail({ id }: { id: string }) {
             <Field label="Notes"><textarea rows={3} className={inputCls} value={edit.notes ?? e.notes} onChange={(ev) => setEdit({ ...edit, notes: ev.target.value })} /></Field>
             <Field label="Request options (JSON)" hint={e.kind === "api" ? 'e.g. {"effort": "low"} for Claude to cut thinking cost' : "provider-specific"}>
               <textarea rows={2} className={`${inputCls} font-mono`} value={edit.options ?? JSON.stringify(e.options)} onChange={(ev) => setEdit({ ...edit, options: ev.target.value })} /></Field>
+            <Field label="Prompt tier" hint="the prompt variant on tasks that carry several (Strong Hire sends its small prompts to small models)">
+              <select className={inputCls} value={edit.prompt_tier ?? e.prompt_tier ?? ""} onChange={(ev) => setEdit({ ...edit, prompt_tier: ev.target.value })}>
+                <option value="">default prompt</option><option value="small">small</option><option value="medium">medium</option><option value="large">large</option>
+              </select></Field>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             <Button disabled={!changed || save.isPending || edit.name?.trim() === ""} onClick={() => save.mutate()}>Save</Button>

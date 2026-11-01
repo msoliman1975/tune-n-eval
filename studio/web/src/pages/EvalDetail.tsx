@@ -77,7 +77,7 @@ function Report({ r }: { r: EvalReport }) {
               {numeric.map((metric) => {
                 const vals = models.map((m) => score(m, metric)?.value);
                 const present = vals.filter((v): v is number => v !== undefined);
-                const best = present.length > 1 ? (info[metric].higher_is_better ? Math.max(...present) : Math.min(...present)) : undefined;
+                const best = present.length > 1 && info[metric].kind !== "value" ? (info[metric].higher_is_better ? Math.max(...present) : Math.min(...present)) : undefined;
                 return (
                   <tr key={metric} className="border-t border-line">
                     <td className="py-2"><span className="font-medium">{info[metric].name}</span><div className="text-xs text-muted">{info[metric].approach.replace("_", " ")}</div></td>
@@ -96,6 +96,9 @@ function Report({ r }: { r: EvalReport }) {
             </tbody>
           </table>
         </div>
+        {slice === "all:all" && r.baselines && Object.keys(r.baselines).length > 0 && (
+          <p className="mt-2 text-xs text-muted">Guessing baselines, the best a constant answer scores on these items: {Object.entries(r.baselines).map(([m, b]) => `${info[m]?.name ?? m} ${fmtMetric(info[m]?.kind, b.value)} (${b.answer})`).join(" · ")}. A model near these numbers is not judging.</p>
+        )}
         <p className="mt-2 text-xs text-muted">95% bootstrap intervals. Bold = best on this slice. Hardness is Spider's classification of the gold query.</p>
       </Card>
 
@@ -259,7 +262,7 @@ function ItemCard({ r, it, metric, name }: { r: EvalReport; it: EvalItem; metric
         <span className="flex flex-wrap gap-1">
           {r.models.map((m, i) => {
             const v = it.results[m.id]?.scores[metric];
-            const ok = typeof v === "number" ? (r.metric_info[metric].kind === "scale" ? v >= 4 : v >= (r.metric_info[metric].kind === "score" ? 0.5 : 1)) : null;
+            const ok = typeof v === "number" && ["rate", "score", "scale"].includes(r.metric_info[metric].kind) ? (r.metric_info[metric].kind === "scale" ? v >= 4 : v >= (r.metric_info[metric].kind === "score" ? 0.5 : 1)) : null;
             return <span key={m.id} className="inline-flex items-center gap-1"><Swatch i={i} /><Badge value={ok === null ? "unknown" : ok ? "pass" : "fail"} label={typeof v === "number" && r.metric_info[metric].kind !== "rate" ? fmtMetric(r.metric_info[metric].kind, v) : ok === null ? "—" : ok ? "pass" : "fail"} /></span>;
           })}
         </span>

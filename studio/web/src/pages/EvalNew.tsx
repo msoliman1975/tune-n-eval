@@ -4,8 +4,8 @@ import { api } from "../api";
 import { Badge, Button, Card, ErrorNote, Field, inputCls } from "../ui";
 import { where } from "./Models";
 
-const APPROACH_ORDER = ["execution", "reference", "llm_judge", "efficiency"];
-const APPROACH_LABEL: Record<string, string> = { execution: "Execution-based", reference: "Reference match", llm_judge: "LLM judge", efficiency: "Efficiency" };
+const APPROACH_ORDER = ["execution", "reference", "structured", "product", "llm_judge", "efficiency"];
+const APPROACH_LABEL: Record<string, string> = { execution: "Execution-based", reference: "Reference match", structured: "Structured output", product: "Product formula", llm_judge: "LLM judge", efficiency: "Efficiency" };
 
 export function EvalNew({ query }: { query: URLSearchParams }) {
   const models = useQuery({ queryKey: ["models"], queryFn: api.models });
@@ -39,7 +39,11 @@ export function EvalNew({ query }: { query: URLSearchParams }) {
   const paid = picked.filter((id) => models.data?.find((m) => m.id === id)?.paid);
   const cost = Object.values(estimate.data?.models ?? {}).reduce((s, e) => s + (e.est_usd ?? 0), 0);
   const ollama = (models.data ?? []).filter((m) => m.kind === "ollama");
-  const grouped = useMemo(() => APPROACH_ORDER.map((a) => [a, (catalog.data?.metrics ?? []).filter((m) => m.approach === a)] as const).filter(([, ms]) => ms.length), [catalog.data]);
+  const grouped = useMemo(() => {  // known approaches in order, then any other approach the API reports
+    const ms = catalog.data?.metrics ?? [];
+    const order = [...APPROACH_ORDER, ...new Set(ms.map((m) => m.approach).filter((a) => !APPROACH_ORDER.includes(a)))];
+    return order.map((a) => [a, ms.filter((m) => m.approach === a)] as const).filter(([, list]) => list.length);
+  }, [catalog.data]);
   const toggle = (list: string[], set: (v: string[]) => void, v: string) => set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
   return (

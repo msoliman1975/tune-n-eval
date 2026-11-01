@@ -1,0 +1,44 @@
+{
+  "$defs": {
+    "ProbeTrigger": {
+      "description": "IV-3 follow-up rules: what an answer lacks, so the interviewer probes.",
+      "enum": [
+        "own_role",
+        "measurable_result",
+        "concrete_example",
+        "tradeoff_reasoning",
+        "off_topic"
+      ],
+      "title": "ProbeTrigger",
+      "type": "string"
+    }
+  },
+  "$id": "https://strong-hire.local/schemas/probe_decision.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "What the interviewer model decides after an answer in CORE (IV-3).\n\nA constrained choice, so a weak model cannot derail the session. The session controller\nenforces the probe limit per question and moves on once it is reached, whatever this says.",
+  "properties": {
+    "action": {
+      "enum": [
+        "probe",
+        "move_on"
+      ],
+      "title": "Action",
+      "type": "string"
+    },
+    "missing": {
+      "description": "What the answer lacks; empty to move on.",
+      "items": {
+        "$ref": "#/$defs/ProbeTrigger"
+      },
+      "maxItems": 5,
+      "title": "Missing",
+      "type": "array"
+    }
+  },
+  "required": [
+    "action"
+  ],
+  "title": "ProbeDecision",
+  "type": "object"
+}

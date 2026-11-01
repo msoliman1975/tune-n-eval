@@ -86,8 +86,9 @@ def test_run_and_explorer(dataset, monkeypatch):
               {"id": "m-bad", "kind": "ollama", "ollama_tag": "y", "name": "bad", "paid": False}]
     order = [i for i, _, _ in sorted(ITEMS)]
 
-    def fake_generate(models_, convs, max_new, batch, ev):
+    def fake_generate(models_, convs, max_new, batch, ev, gen=None, tier_convs=None):
         assert all(c[1]["content"].startswith("Database schema:\nCREATE TABLE singer") for c in convs)
+        assert gen.json_schema is None and not gen.stream and not tier_convs  # a text task: options stay off
         return {"m-good": [Answer(GOOD[i], 0.5, 900, 12) for i in order],
                 "m-bad": [Answer(BAD[i], 1.5, 900, 15) for i in order]}
 

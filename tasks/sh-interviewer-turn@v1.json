@@ -1,0 +1,35 @@
+{
+  "id": "sh-interviewer-turn",
+  "version": "v1",
+  "name": "Strong Hire: interviewer's spoken reply",
+  "description": "The interviewer's next spoken line after a candidate answer: a follow-up (probe) or the next question (ask), from the scripted transcripts. The answer is streamed, so ttft is the time to the first spoken word (what the candidate waits for). word_limit uses the product's limit for the model's tier (35 words, 30 for small models). Prompts are Strong Hire's own (built by scripts/build_strong_hire.py); a model with prompt_tier small gets the small-model variant where the row has one.",
+  "user_template": "",
+  "inputs": [
+    "title",
+    "messages"
+  ],
+  "target": "reference",
+  "messages_field": "messages",
+  "decoding": {
+    "max_new_tokens": 300,
+    "stream": true
+  },
+  "slices": [
+    "move",
+    "interview_type"
+  ],
+  "metrics": {
+    "available": [
+      "one_question",
+      "word_limit",
+      "ttft",
+      "latency"
+    ],
+    "default": [
+      "one_question",
+      "word_limit",
+      "ttft",
+      "latency"
+    ]
+  }
+}

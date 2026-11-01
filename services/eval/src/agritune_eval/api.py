@@ -349,12 +349,16 @@ def eval_item(eval_id: str, item_id: str) -> dict:
         messages, source = (task.messages(task.with_context(row, root)) if row else None), "re-rendered"
     as_sent = {}
     if messages:
+        from .targets import Gen
         from .targets import as_sent as render_for
 
-        max_new = it.get("max_new_tokens") or task_of(dataset_ref(rep["dataset_path"])).decoding.get("max_new_tokens", 400)
+        task = task_of(dataset_ref(rep["dataset_path"]))
+        max_new = it.get("max_new_tokens") or task.decoding.get("max_new_tokens", 400)
+        gen = Gen(json_schema=task.json_schema, stream=bool(task.decoding.get("stream")))
         for m in rep["models"]:
-            try:
-                as_sent[m["id"]] = render_for(m, messages, max_new, REPO)
+            try:  # a model with a prompt_tier saw that variant of the prompt, when the item has one
+                own = (it.get("tier_messages") or {}).get(m.get("prompt_tier") or "", messages)
+                as_sent[m["id"]] = render_for(m, own, max_new, REPO, gen)
             except Exception as e:  # e.g. a tokenizer no longer on disk
                 as_sent[m["id"]] = {"format": "error", "label": f"{type(e).__name__}: {e}"[:300]}
     return it | {"messages": messages, "prompt_source": source, "as_sent": as_sent, "results": res.get(item_id, {})}
@@ -404,19 +408,24 @@ def generate(req: GenerateRequest) -> dict:
         raise HTTPException(409, "the GPU is busy with a training run or an evaluation; try again when it finishes")
     sql = bool(task.attachments and task.attachments["type"] == "sqlite_dbs")
     max_new = task.decoding.get("max_new_tokens", 400)
+    from .targets import Gen
+
+    gen = Gen(json_schema=task.json_schema, stream=bool(task.decoding.get("stream")))
     out = []
     for m in models:
         r = {"model": m["id"], "name": m["name"]}
         try:
+            own = task.messages(row, m.get("prompt_tier")) if task.messages_field else messages
             if m["kind"] == "api":
                 t = (AnthropicTarget if m["provider"] == "anthropic" else GeminiTarget)(m["api_model"], m.get("options"))
             elif m.get("ollama_tag"):
                 t = OllamaTarget(m["ollama_tag"])
             else:
                 raise RuntimeError("not servable: export this model to Ollama first (Training -> Export)")
-            a = t.one(messages, max_new)
+            a = t.one(own, max_new, gen)
             r |= {"output": a.text, "latency_s": round(a.latency_s, 2), "input_tokens": a.input_tokens,
-                  "output_tokens": a.output_tokens, "error": a.error}
+                  "output_tokens": a.output_tokens, "error": a.error,
+                  "ttft_s": None if a.ttft_s is None else round(a.ttft_s, 2)}
             if sql and not a.error:
                 q = extract_sql(a.text)
                 r |= {"sql": q, "result": preview(execute(task.attachment(root, row), q, timeout_s=10), 50)}

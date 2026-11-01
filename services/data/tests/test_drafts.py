@@ -121,3 +121,28 @@ def test_draft_to_dataset():
     assert copy["status"] == "mapped" and copy["counts"] == {"train": 6, "validation": 4, "test": 1}
     assert copy["attachments"]["n_missing"] == 0
     assert any(x["id"] == did for x in c.get("/drafts").json())
+
+
+def test_strong_hire_dataset_freezes_as_the_import_script_does():
+    """scripts/import_strong_hire.py's mapping, on a built-in Strong Hire file: JSON fields stay JSON."""
+    import sys
+
+    sys.path.insert(0, str(REPO / "scripts"))  # the script imports its sibling import_nl2sql
+    try:
+        import import_strong_hire as mod
+    finally:
+        sys.path.pop(0)
+    body = (REPO / "datasets" / "strong-hire" / "sh-probe.jsonl").read_bytes()
+    did = c.post("/drafts", files={"file": ("sh-probe.jsonl", body)}, data={"name": "sh-probe"}).json()["id"]
+    mapping = {"task": "sh-probe@v1", "fields": {"title": "title", "messages": "messages", "reference": "reference"},
+               "id_column": "id", "meta_columns": mod.META["sh-probe"], "split": {"mode": "single", "single": "test"}}
+    d = c.put(f"/drafts/{did}/mapping", json=mapping).json()
+    assert d["counts"]["test"] == len(body.splitlines())
+    p = c.get(f"/drafts/{did}/preview", params={"n": 1}).json()[0]
+    assert p["messages"][0]["role"] == "system" and p["messages"][-1]["content"].startswith("Interview type:")
+    c.post(f"/drafts/{did}/freeze", json={"id": "sh-probe", "version": "v1.0"})
+    d = wait_frozen(did)
+    assert d["status"] == "frozen", d
+    row = c.get("/datasets/sh-probe/v1.0/items", params={"split": "test"}).json()["items"][0]
+    assert json.loads(row["reference"])["expected"]["action"] in ("probe", "move_on")
+    assert "default" in json.loads(row["messages"]) and json.loads(row["meta"])["expected"]

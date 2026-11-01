@@ -1,0 +1,119 @@
+{
+  "$defs": {
+    "Competency": {
+      "description": "Scored competencies from the spec, grouped by interview type in COMPETENCIES_BY_TYPE.",
+      "enum": [
+        "ownership",
+        "impact",
+        "collaboration",
+        "conflict_handling",
+        "learning_from_failure",
+        "communication",
+        "role_fit",
+        "depth_of_experience",
+        "judgment",
+        "motivation",
+        "team_fit",
+        "scope_at_level",
+        "technical_depth",
+        "accuracy",
+        "reasoning",
+        "trade_offs",
+        "clarity_of_explanation",
+        "problem_framing",
+        "structure",
+        "user_and_business_sense",
+        "estimation_logic",
+        "prioritization",
+        "recommendation",
+        "logistics_and_expectations"
+      ],
+      "title": "Competency",
+      "type": "string"
+    },
+    "StoryPart": {
+      "description": "ST-1: the five parts of a story, in the order the workbench and prompts show them.",
+      "enum": [
+        "context",
+        "stakes",
+        "action",
+        "result",
+        "reflection"
+      ],
+      "title": "StoryPart",
+      "type": "string"
+    },
+    "StoryPartUpdate": {
+      "additionalProperties": false,
+      "description": "CO-3, CO-9: new text for one story part, backed by the candidate's own words.",
+      "properties": {
+        "part": {
+          "$ref": "#/$defs/StoryPart"
+        },
+        "quotes": {
+          "description": "The candidate's words this part came from, verbatim.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Quotes",
+          "type": "array"
+        },
+        "text": {
+          "description": "The part, written from the candidate's words.",
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "part",
+        "text",
+        "quotes"
+      ],
+      "title": "StoryPartUpdate",
+      "type": "object"
+    }
+  },
+  "$id": "https://strong-hire.local/schemas/coach_reply.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "CO-3, CO-4: one coach turn. The coach updates only the parts the candidate's own words\nsupport (CO-9) and asks for what is still missing.",
+  "properties": {
+    "message": {
+      "description": "What the coach says to the candidate.",
+      "minLength": 1,
+      "title": "Message",
+      "type": "string"
+    },
+    "missing": {
+      "description": "Parts the candidate has not given yet.",
+      "items": {
+        "$ref": "#/$defs/StoryPart"
+      },
+      "title": "Missing",
+      "type": "array"
+    },
+    "parts": {
+      "description": "Parts this turn updated. Empty when none changed.",
+      "items": {
+        "$ref": "#/$defs/StoryPartUpdate"
+      },
+      "title": "Parts",
+      "type": "array"
+    },
+    "skills": {
+      "description": "Skills the story shows so far.",
+      "items": {
+        "$ref": "#/$defs/Competency"
+      },
+      "title": "Skills",
+      "type": "array"
+    }
+  },
+  "required": [
+    "message"
+  ],
+  "title": "CoachReply",
+  "type": "object"
+}

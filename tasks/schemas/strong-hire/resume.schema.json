@@ -1,0 +1,175 @@
+{
+  "$defs": {
+    "Education": {
+      "additionalProperties": false,
+      "properties": {
+        "degree": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Degree"
+        },
+        "end": {
+          "anyOf": [
+            {
+              "examples": [
+                "2023-04"
+              ],
+              "pattern": "^\\d{4}(-(0[1-9]|1[0-2]))?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End"
+        },
+        "field_of_study": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Field Of Study"
+        },
+        "institution": {
+          "minLength": 1,
+          "title": "Institution",
+          "type": "string"
+        }
+      },
+      "required": [
+        "institution"
+      ],
+      "title": "Education",
+      "type": "object"
+    },
+    "ResumeRole": {
+      "additionalProperties": false,
+      "properties": {
+        "achievements": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Achievements",
+          "type": "array"
+        },
+        "company": {
+          "minLength": 1,
+          "title": "Company",
+          "type": "string"
+        },
+        "end": {
+          "anyOf": [
+            {
+              "examples": [
+                "2023-04"
+              ],
+              "pattern": "^\\d{4}(-(0[1-9]|1[0-2]))?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "None means current role.",
+          "title": "End"
+        },
+        "skills": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Skills",
+          "type": "array"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "examples": [
+                "2023-04"
+              ],
+              "pattern": "^\\d{4}(-(0[1-9]|1[0-2]))?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "company"
+      ],
+      "title": "ResumeRole",
+      "type": "object"
+    }
+  },
+  "$id": "https://strong-hire.local/schemas/resume.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A parsed resume (IN-3). Contact details are deliberately not part of the contract.",
+  "properties": {
+    "certifications": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Certifications",
+      "type": "array"
+    },
+    "education": {
+      "items": {
+        "$ref": "#/$defs/Education"
+      },
+      "title": "Education",
+      "type": "array"
+    },
+    "roles": {
+      "items": {
+        "$ref": "#/$defs/ResumeRole"
+      },
+      "title": "Roles",
+      "type": "array"
+    },
+    "skills": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Skills",
+      "type": "array"
+    },
+    "summary": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Summary"
+    }
+  },
+  "title": "Resume",
+  "type": "object"
+}

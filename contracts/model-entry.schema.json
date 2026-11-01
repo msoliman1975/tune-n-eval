@@ -20,6 +20,7 @@
     "lineage": { "type": "object", "description": "dataset, task, run_id, preset, base_model, mlflow_run_id" },
     "paid": { "type": "boolean" },
     "options": { "type": "object", "description": "Provider request options, e.g. {\"effort\": \"low\"} for Claude." },
+    "prompt_tier": { "enum": ["small", "medium", "large", null], "description": "Prompt variant for tasks whose rows carry several (e.g. Strong Hire's small-model prompts). Null: the default prompt." },
     "tags": { "type": "array", "items": { "type": "string" } },
     "notes": { "type": "string" },
     "evaluations": {

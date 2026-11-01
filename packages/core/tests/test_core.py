@@ -103,3 +103,39 @@ def test_optional_inputs():
     assert t.user(row | {"evidence": "rate = a / b"}).endswith("Question: How many?\nExternal knowledge: rate = a / b")
     v1 = load_task("nl2sql-sqlite@v1")
     assert v1.user(row) == t.user(row) and v1.required == v1.inputs  # v2 renders a v1 row the same
+
+
+def test_messages_from_rows_with_tiers():
+    """Tasks whose rows carry their prompts (the Strong Hire tasks): variants by prompt tier, JSON output."""
+    import json
+
+    t = load_task("sh-probe@v1")
+    default = [{"role": "system", "content": "Decide."}, {"role": "user", "content": "Answer: we did it."}]
+    small = [{"role": "system", "content": "Decide (short)."}, {"role": "user", "content": "Answer: we did it."}]
+    row = {"title": "x", "messages": json.dumps({"default": default, "small": small}), "reference": "{}"}
+    assert t.messages(row) == default and t.messages(row, "large") == default and t.messages(row, "small") == small
+    assert t.tiers(row) == ["small"] and t.user(row) == "Answer: we did it."
+    assert t.json_schema["title"] == "ProbeDecision" and t.slices[0] == "expected"
+    plain = {"title": "x", "messages": json.dumps(default)}  # a bare list is the only variant
+    assert t.messages(plain, "small") == default and t.tiers(plain) == []
+    with pytest.raises(ValueError):
+        t.messages({"messages": json.dumps({"default": [{"text": "no role"}]})})
+    assert load_task("nl2sql-sqlite@v1").json_schema is None  # template tasks are unchanged
+
+
+def test_strong_hire_tasks_cover_their_datasets():
+    """Every built-in Strong Hire row renders under its task, in every tier it carries."""
+    import json
+
+    from agritune_core import REPO
+
+    files = sorted((REPO / "datasets" / "strong-hire").glob("sh-*.jsonl"))
+    assert len(files) == 9
+    for f in files:
+        t = load_task(f"{f.stem}@v1")
+        for line in f.read_text(encoding="utf-8").splitlines():
+            row = json.loads(line)
+            for tier in [None, *t.tiers(row)]:
+                msgs = t.messages(row, tier)
+                assert msgs[-1]["role"] == "user" and msgs[-1]["content"].strip()
+            assert isinstance(json.loads(row["reference"]), dict) and row["title"]

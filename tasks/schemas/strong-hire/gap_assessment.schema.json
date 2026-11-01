@@ -1,0 +1,275 @@
+{
+  "$defs": {
+    "Competency": {
+      "description": "Scored competencies from the spec, grouped by interview type in COMPETENCIES_BY_TYPE.",
+      "enum": [
+        "ownership",
+        "impact",
+        "collaboration",
+        "conflict_handling",
+        "learning_from_failure",
+        "communication",
+        "role_fit",
+        "depth_of_experience",
+        "judgment",
+        "motivation",
+        "team_fit",
+        "scope_at_level",
+        "technical_depth",
+        "accuracy",
+        "reasoning",
+        "trade_offs",
+        "clarity_of_explanation",
+        "problem_framing",
+        "structure",
+        "user_and_business_sense",
+        "estimation_logic",
+        "prioritization",
+        "recommendation",
+        "logistics_and_expectations"
+      ],
+      "title": "Competency",
+      "type": "string"
+    },
+    "CompetencyRating": {
+      "additionalProperties": false,
+      "properties": {
+        "competency": {
+          "$ref": "#/$defs/Competency"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        },
+        "rating": {
+          "maximum": 3,
+          "minimum": 0,
+          "title": "Rating",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "competency",
+        "rating"
+      ],
+      "title": "CompetencyRating",
+      "type": "object"
+    },
+    "Difficulty": {
+      "description": "IV-4.",
+      "enum": [
+        "friendly",
+        "realistic",
+        "tough"
+      ],
+      "title": "Difficulty",
+      "type": "string"
+    },
+    "Gap": {
+      "additionalProperties": false,
+      "properties": {
+        "related_requirement": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Related Requirement"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "summary": {
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "summary",
+        "severity"
+      ],
+      "title": "Gap",
+      "type": "object"
+    },
+    "PlannedSession": {
+      "additionalProperties": false,
+      "description": "One recommended practice session (GA-3).",
+      "properties": {
+        "difficulty": {
+          "$ref": "#/$defs/Difficulty",
+          "default": "realistic"
+        },
+        "focus_topics": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Focus Topics",
+          "type": "array"
+        },
+        "interview_type": {
+          "enum": [
+            "behavioral",
+            "hiring_manager",
+            "technical_qa",
+            "case"
+          ],
+          "type": "string"
+        },
+        "priority": {
+          "description": "1 is the first session to run.",
+          "minimum": 1,
+          "title": "Priority",
+          "type": "integer"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "priority",
+        "interview_type",
+        "focus_topics",
+        "reason"
+      ],
+      "title": "PlannedSession",
+      "type": "object"
+    },
+    "RequirementRating": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A short quote from the resume that supports the rating.",
+          "title": "Evidence"
+        },
+        "id": {
+          "description": "The requirement id from the input, e.g. 'r3'.",
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "rating": {
+          "maximum": 3,
+          "minimum": 0,
+          "title": "Rating",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "rating"
+      ],
+      "title": "RequirementRating",
+      "type": "object"
+    },
+    "Severity": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "Strength": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "description": "Resume evidence (GA-2).",
+          "minLength": 1,
+          "title": "Evidence",
+          "type": "string"
+        },
+        "summary": {
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "summary",
+        "evidence"
+      ],
+      "title": "Strength",
+      "type": "object"
+    }
+  },
+  "$id": "https://strong-hire.local/schemas/gap_assessment.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "What the planner model returns for a gap analysis. Code builds the GapAnalysis from it.",
+  "properties": {
+    "competencies": {
+      "items": {
+        "$ref": "#/$defs/CompetencyRating"
+      },
+      "title": "Competencies",
+      "type": "array"
+    },
+    "gaps": {
+      "items": {
+        "$ref": "#/$defs/Gap"
+      },
+      "title": "Gaps",
+      "type": "array"
+    },
+    "probe_areas": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Probe Areas",
+      "type": "array"
+    },
+    "requirements": {
+      "items": {
+        "$ref": "#/$defs/RequirementRating"
+      },
+      "title": "Requirements",
+      "type": "array"
+    },
+    "session_plan": {
+      "items": {
+        "$ref": "#/$defs/PlannedSession"
+      },
+      "minItems": 1,
+      "title": "Session Plan",
+      "type": "array"
+    },
+    "strengths": {
+      "items": {
+        "$ref": "#/$defs/Strength"
+      },
+      "title": "Strengths",
+      "type": "array"
+    }
+  },
+  "required": [
+    "session_plan"
+  ],
+  "title": "GapAssessment",
+  "type": "object"
+}

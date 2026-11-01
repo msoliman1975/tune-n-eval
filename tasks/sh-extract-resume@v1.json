@@ -1,0 +1,70 @@
+{
+  "id": "sh-extract-resume",
+  "version": "v1",
+  "name": "Strong Hire: CV extraction (IN-3)",
+  "description": "Read a CV into Strong Hire's Resume contract. The CV text is what Strong Hire's reader gets from the .txt, .pdf or .docx fixture (file layouts that readers get wrong: date columns, sidebars, tables). Prompts are Strong Hire's own (built by scripts/build_strong_hire.py); a model with prompt_tier small gets the small-model variant where the row has one.",
+  "user_template": "",
+  "inputs": [
+    "title",
+    "messages"
+  ],
+  "target": "reference",
+  "messages_field": "messages",
+  "output": {
+    "format": "json",
+    "schema": "schemas/strong-hire/resume.schema.json"
+  },
+  "decoding": {
+    "max_new_tokens": 3000
+  },
+  "scoring": {
+    "fields": [
+      {
+        "path": "roles[].company",
+        "type": "list",
+        "threshold": 0.6
+      },
+      {
+        "path": "roles[].title",
+        "type": "list",
+        "threshold": 0.6
+      },
+      {
+        "path": "roles[].achievements[]",
+        "type": "list",
+        "threshold": 0.5
+      },
+      {
+        "path": "skills",
+        "type": "list",
+        "threshold": 0.6
+      },
+      {
+        "path": "education[].institution",
+        "type": "list",
+        "threshold": 0.6
+      },
+      {
+        "path": "certifications",
+        "type": "list",
+        "threshold": 0.6
+      }
+    ]
+  },
+  "slices": [
+    "file_kind",
+    "planted_instruction"
+  ],
+  "metrics": {
+    "available": [
+      "json_valid",
+      "field_match",
+      "latency"
+    ],
+    "default": [
+      "json_valid",
+      "field_match",
+      "latency"
+    ]
+  }
+}

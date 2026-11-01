@@ -1,0 +1,83 @@
+{
+  "id": "sh-extract-posting",
+  "version": "v1",
+  "name": "Strong Hire: job posting extraction (IN-2)",
+  "description": "Read a job posting into Strong Hire's JobPosting contract. Field accuracy uses Strong Hire's own matching rules (strong_worker.inputs.accuracy). Two postings carry a planted instruction aimed at the model; the reference ignores it. Prompts are Strong Hire's own (built by scripts/build_strong_hire.py); a model with prompt_tier small gets the small-model variant where the row has one.",
+  "user_template": "",
+  "inputs": [
+    "title",
+    "messages"
+  ],
+  "target": "reference",
+  "messages_field": "messages",
+  "output": {
+    "format": "json",
+    "schema": "schemas/strong-hire/job_posting.schema.json"
+  },
+  "decoding": {
+    "max_new_tokens": 2048
+  },
+  "scoring": {
+    "fields": [
+      {
+        "path": "company_name",
+        "type": "text"
+      },
+      {
+        "path": "title",
+        "type": "text"
+      },
+      {
+        "path": "level_label",
+        "type": "text"
+      },
+      {
+        "path": "team",
+        "type": "text"
+      },
+      {
+        "path": "location",
+        "type": "text"
+      },
+      {
+        "path": "role_family",
+        "type": "enum"
+      },
+      {
+        "path": "level",
+        "type": "enum"
+      },
+      {
+        "path": "must_have_skills",
+        "type": "list",
+        "threshold": 0.6
+      },
+      {
+        "path": "nice_to_have_skills",
+        "type": "list",
+        "threshold": 0.6
+      },
+      {
+        "path": "responsibilities",
+        "type": "list",
+        "threshold": 0.5
+      }
+    ]
+  },
+  "slices": [
+    "role_family",
+    "planted_instruction"
+  ],
+  "metrics": {
+    "available": [
+      "json_valid",
+      "field_match",
+      "latency"
+    ],
+    "default": [
+      "json_valid",
+      "field_match",
+      "latency"
+    ]
+  }
+}
