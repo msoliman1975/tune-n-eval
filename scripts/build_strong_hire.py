@@ -358,7 +358,7 @@ DATASETS = {
     "sh-extract-resume": (extract_resumes, "resume"),
     "sh-input-check": (input_check, "input_check"),
     "sh-gap": (gap_pairs, "gap_assessment"),
-    "sh-score": (scorer_items, "scorecard"),
+    "sh-score": (scorer_items, "scorer_output"),
     "sh-probe": (probe_decisions, "probe_decision"),
     "sh-answer-check": (answer_checks, "answer_check"),
     "sh-interviewer-turn": (interviewer_turns, None),

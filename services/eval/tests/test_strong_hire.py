@@ -253,8 +253,10 @@ def test_schema_breaking_answers_count_as_no_answer_for_every_model():
     assert score("sh-coach-turn@v1", {"message": ""}, c["reference"])[0]["one_question"] == 0.0  # rejected: says nothing
 
 
-def test_competency_scores_compare_overall_only_scorecards():
-    """A model may give only overall competency scores; the competency metrics still compare them."""
+def test_overall_only_scorecards_break_the_scorer_output_schema():
+    """Strong Hire's ScorerOutput requires per-question scores (FB-1, FB-2): a card with only overall
+    competency scores is rejected, as in the product. A card covering only some questions is valid, and
+    the competency metrics still compare the overall scores of the questions it skipped."""
     r = rows("sh-score")[0]
     ref = json.loads(r["reference"])
     quote = " ".join(max(ref["source_texts"], key=len).split()[:6])
@@ -266,7 +268,12 @@ def test_competency_scores_compare_overall_only_scorecards():
     card = {"hire_signal": "Hire", "rationale": "r", "scorer_model": "m", "rubric_version": "v",
             "competency_scores": overall, "per_question": []}
     s, d = score("sh-score@v1", card, r["reference"])
-    assert s["rubric_within_one"] == 0.0 and s["competency_error"] < 0.5 and s["scorecard_usable"] == 1.0
+    assert s["json_valid"] == 0.0 and s["scorecard_usable"] == 0.0 and d["unusable"] == "does not match the schema"
+    without = {k: v for k, v in card.items() if k != "per_question"}
+    assert score("sh-score@v1", without, r["reference"])[0]["json_valid"] == 0.0
+    one = gold_card(ref, quote)["per_question"][:1]
+    s, d = score("sh-score@v1", card | {"per_question": one}, r["reference"])
+    assert s["json_valid"] == 1.0 and s["scorecard_usable"] == 1.0 and s["competency_error"] < 0.5
     assert len(d["pairs"]["competency_kappa"]) == len(human)
 
 

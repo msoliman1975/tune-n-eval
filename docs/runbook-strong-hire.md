@@ -41,10 +41,12 @@ How the metrics work (definitions in the Studio's metric picker, code in
   answering "Lean No Hire" is within one band 67% of the time, and scoring every rubric item 3 is within
   one point 93% of the time. The report lists these baselines under the scorecard. For the scorer, read
   the kappa metrics first (agreement beyond chance, 1 perfect, 0 guessing), then the error and bias.
-- **Per-question vs competency scores.** Strong Hire's scorer prompt asks for per-question scores, but
-  its Scorecard contract does not require them, so models often give only overall competency scores.
-  `rubric_within_one` needs per-question scores; `competency_kappa` and `competency_error` compare
-  either kind.
+- **Per-question vs competency scores.** Strong Hire's scorer asks the model for ScorerOutput, which
+  requires at least one per-question entry (`scorer_output.schema.json`). A scorecard with only overall
+  competency scores breaks the schema and counts as no answer. Strong Hire's stored Scorecard keeps
+  `per_question` optional, so the eval does not use `scorecard.schema.json`. `rubric_within_one` needs
+  per-question scores; `competency_kappa` and `competency_error` compare overall and per-question
+  scores, so a card that covers only some questions still counts for the rest.
 - **Gap bands.** `gap_fit` expects 60-100 for a matching pair (same job family, seniority within one
   level) and 0-40 for an unrelated family. Adjacent families (SWE and data/ML, PM and TPM, ...) and big
   seniority gaps have no band; read `gap_match_score` by the `fit` slice: matches should sit well above
